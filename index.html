@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#2D6A2D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Partes Cemerplay">
+<title>Partes Cemerplay</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f0;min-height:100vh;padding-bottom:2rem}
+.header{background:#2D6A2D;color:white;padding:1rem 1.25rem;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.header h1{font-size:17px;font-weight:600;flex:1}
+.exp-pill{font-size:12px;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:20px;white-space:nowrap;font-weight:600;min-width:72px;text-align:center;transition:background .4s}
+.btn-nuevo{display:flex;align-items:center;gap:5px;font-size:12px;background:rgba(255,255,255,.18);color:white;border:1px solid rgba(255,255,255,.4);padding:5px 12px;border-radius:20px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn-nuevo:active{background:rgba(255,255,255,.35)}
+.card{background:white;margin:12px;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.sec-title{background:#3D8A3D;color:white;font-size:12px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;padding:7px 14px}
+.fields{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;color:#666;font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+.field input,.field select,.field textarea{border:1px solid #ddd;border-radius:8px;padding:9px 11px;font-size:15px;background:#fafafa;color:#111;width:100%;-webkit-appearance:none;appearance:none}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#2D6A2D;background:white;box-shadow:0 0 0 3px rgba(45,106,45,.1)}
+.field input[readonly]{background:#eaf5ea;color:#1a5c1a;font-weight:700;border-color:#b2d8b2}
+.field textarea{resize:none;min-height:80px;line-height:1.5}
+.radio-row{display:flex;gap:16px;margin-top:2px}
+.radio-row label{display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;color:#333}
+.radio-row input[type=radio]{accent-color:#2D6A2D;width:17px;height:17px}
+.loc-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid #2D6A2D;background:#eaf5ea;color:#1a5c1a;padding:11px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;width:100%}
+.loc-btn:active{background:#d4edd4}
+.loc-info{margin-top:8px;padding:9px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#2D6A2D;display:none;line-height:1.4}
+.photos-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.pslot{aspect-ratio:1;border:2px dashed #ccc;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background:#fafafa}
+.pslot:active{border-color:#2D6A2D;background:#eaf5ea}
+.pslot .plus{font-size:24px;color:#bbb;line-height:1}
+.pslot .lbl{font-size:9px;color:#bbb;margin-top:2px}
+.pslot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pslot .rm{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700}
+.actions{padding:0 12px;display:flex;gap:10px;margin-top:4px}
+.btn-sec{flex:1;padding:13px;border:1.5px solid #ccc;border-radius:10px;background:white;color:#333;font-size:14px;cursor:pointer;font-weight:600}
+.btn-pri{flex:2;padding:13px;border:none;border-radius:10px;background:#2D6A2D;color:white;font-size:14px;cursor:pointer;font-weight:700}
+.btn-pri:active{background:#235223}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;padding:1rem;align-items:flex-end;justify-content:center}
+.overlay.active{display:flex}
+.sheet{background:white;border-radius:18px 18px 0 0;width:100%;max-width:600px;max-height:85vh;display:flex;flex-direction:column}
+.sheet-header{padding:1rem 1.25rem;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between}
+.sheet-header h3{font-size:16px;font-weight:600}
+.sheet-close{background:none;border:none;font-size:22px;color:#999;cursor:pointer;padding:0 4px}
+.sheet-body{padding:1rem 1.25rem;overflow-y:auto;flex:1}
+.email-pre{background:#f5f5f5;border-radius:8px;padding:12px;font-size:12px;font-family:monospace;white-space:pre-wrap;line-height:1.6;max-height:40vh;overflow-y:auto;color:#222;margin-bottom:14px}
+.sheet-actions{padding:1rem 1.25rem;border-top:1px solid #eee;display:flex;gap:10px}
+.confirm-sheet .sheet-body p{font-size:15px;color:#333;line-height:1.5;margin-bottom:1rem}
+.btn-danger{flex:1;padding:13px;border:none;border-radius:10px;background:#c0392b;color:white;font-size:14px;cursor:pointer;font-weight:700}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2D6A2D;color:white;padding:10px 20px;border-radius:24px;font-size:14px;font-weight:500;display:none;z-index:999;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.install-bar{background:#1a4f1a;color:white;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;display:none}
+.install-bar button{background:white;color:#1a4f1a;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="install-bar" id="install-bar">
+  <span style="flex:1">Añade la app a tu pantalla de inicio</span>
+  <button onclick="installApp()">Instalar</button>
+  <button onclick="document.getElementById('install-bar').style.display='none'" style="background:rgba(255,255,255,.2);color:white">×</button>
+</div>
+
+<div class="header">
+  <h1>Cemerplay · Parte</h1>
+  <span class="exp-pill" id="exp-pill">ES-0001</span>
+  <button class="btn-nuevo" onclick="pedirNuevoParte()">＋ Nuevo</button>
+</div>
+
+<!-- IDENTIFICACIÓN -->
+<div class="card">
+  <div class="sec-title">Identificación</div>
+  <div class="fields">
+    <div class="row3">
+      <div class="field"><label>N Expediente</label><input id="expediente" readonly value="ES-0001"></div>
+      <div class="field"><label>Firma contrato</label><input type="date" id="fecha-firma"></div>
+      <div class="field"><label>Fecha ejecución</label><input type="date" id="fecha-ejec"></div>
+    </div>
+    <div class="field"><label>Comercial</label><input type="text" id="comercial" placeholder="Nombre del comercial"></div>
+  </div>
+</div>
+
+<!-- CLIENTE -->
+<div class="card">
+  <div class="sec-title">Datos del cliente</div>
+  <div class="fields">
+    <div class="row2">
+      <div class="field"><label>Nombre cliente</label><input type="text" id="nombre" placeholder="Empresa o persona"></div>
+      <div class="field"><label>Teléfono</label><input type="tel" id="telefono" placeholder="961 77 08 61"></div>
+    </div>
+    <div class="field"><label>Correo electrónico</label><input type="email" id="correo" placeholder="correo@ejemplo.com"></div>
+    <div class="field"><label>Dirección obra</label><input type="text" id="direccion" placeholder="Calle, número, CP"></div>
+    <div class="row2">
+      <div class="field"><label>Población</label><input type="text" id="poblacion" placeholder="Sueca"></div>
+      <div class="field"><label>Acceso obra</label>
+        <div class="radio-row">
+          <label><input type="radio" name="acceso" value="Sí"> Sí</label>
+          <label><input type="radio" name="acceso" value="No"> No</label>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INSTALACIÓN -->
+<div class="card">
+  <div class="sec-title">Datos de la instalación</div>
+  <div class="fields">
+    <div class="row2">
+      <div class="field"><label>Días instalación</label><input type="number" id="dias" placeholder="1" min="1"></div>
+      <div class="field"><label>Estado terreno</label><input type="text" id="terreno" placeholder="Tierra, asfalto…"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Ret. juego existente</label>
+        <div class="radio-row"><label><input type="radio" name="ret-juego" value="Sí"> Sí</label><label><input type="radio" name="ret-juego" value="No"> No</label></div>
+      </div>
+      <div class="field"><label>Atornillado</label>
+        <div class="radio-row"><label><input type="radio" name="atornillado" value="Sí"> Sí</label><label><input type="radio" name="atornillado" value="No"> No</label></div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Ret. caucho existente</label>
+        <div class="radio-row"><label><input type="radio" name="ret-caucho" value="Sí"> Sí</label><label><input type="radio" name="ret-caucho" value="No"> No</label></div>
+      </div>
+      <div class="field"><label>Solera</label>
+        <div class="radio-row"><label><input type="radio" name="solera" value="Sí"> Sí</label><label><input type="radio" name="solera" value="No"> No</label></div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>SBR (kg/m²)</label><input type="text" id="sbr"></div>
+      <div class="field"><label>EPDM (kg/m²)</label><input type="text" id="epdm"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Color</label><input type="text" id="color"></div>
+      <div class="field"><label>Grosor (cm)</label><input type="text" id="grosor"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Dados</label><input type="text" id="dados"></div>
+      <div class="field"><label>Comprar material</label><input type="text" id="material"></div>
+    </div>
+    <div class="field"><label>Césped</label><input type="text" id="cesped"></div>
+  </div>
+</div>
+
+<!-- ALQUILER -->
+<div class="card">
+  <div class="sec-title">Alquiler material obra</div>
+  <div class="fields">
+    <div class="row2">
+      <div class="field"><label>Vallas obra</label><input type="text" id="vallas" placeholder="Cant. / días"></div>
+      <div class="field"><label>Día colocación</label><input type="date" id="dia-vallas"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Retirar vallas</label><input type="date" id="ret-vallas"></div>
+      <div class="field"><label>Alquiler máquinas</label><input type="text" id="maquinas"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Transporte</label><input type="text" id="transporte"></div>
+      <div class="field"><label>Contenedor obra</label><input type="text" id="cont-obra"></div>
+    </div>
+    <div class="field"><label>Contenedor reciclado</label><input type="text" id="cont-rec"></div>
+  </div>
+</div>
+
+<!-- OBSERVACIONES -->
+<div class="card">
+  <div class="sec-title">Observaciones</div>
+  <div class="fields">
+    <div class="field"><textarea id="obs" placeholder="Instalación de muelle volante y balancín…" rows="4"></textarea></div>
+  </div>
+</div>
+
+<!-- GPS -->
+<div class="card">
+  <div class="sec-title">Ubicación GPS</div>
+  <div class="fields">
+    <button class="loc-btn" id="loc-btn" onclick="getLocation()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+      Detectar mi ubicación
+    </button>
+    <div class="loc-info" id="loc-info"></div>
+    <div class="row2">
+      <div class="field"><label>Latitud</label><input type="text" id="lat" readonly placeholder="—"></div>
+      <div class="field"><label>Longitud</label><input type="text" id="lng" readonly placeholder="—"></div>
+    </div>
+    <div class="field"><label>Dirección detectada</label><input type="text" id="address" placeholder="Se rellenará automáticamente"></div>
+  </div>
+</div>
+
+<!-- FOTOS -->
+<div class="card">
+  <div class="sec-title">Fotografías (máx. 5)</div>
+  <div class="fields">
+    <div class="photos-grid" id="pgrid"></div>
+  </div>
+</div>
+
+<!-- BOTONES -->
+<div class="actions">
+  <button class="btn-sec" onclick="pedirNuevoParte()">Limpiar</button>
+  <button class="btn-pri" onclick="prepEmail()">Enviar por correo ✉</button>
+</div>
+
+<!-- OVERLAY: Confirmar nuevo parte -->
+<div class="overlay" id="ov-confirm">
+  <div class="sheet confirm-sheet">
+    <div class="sheet-header">
+      <h3>Nuevo parte</h3>
+      <button class="sheet-close" onclick="closeOverlay('ov-confirm')">×</button>
+    </div>
+    <div class="sheet-body">
+      <p id="confirm-msg">¿Crear un nuevo parte? Los datos actuales sin enviar se perderán.</p>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-sec" onclick="closeOverlay('ov-confirm')">Cancelar</button>
+      <button class="btn-danger" onclick="ejecutarNuevo()">Sí, nuevo parte</button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: Vista previa correo -->
+<div class="overlay" id="ov-email">
+  <div class="sheet">
+    <div class="sheet-header">
+      <h3>Vista previa del correo</h3>
+      <button class="sheet-close" onclick="closeOverlay('ov-email')">×</button>
+    </div>
+    <div class="sheet-body">
+      <div class="email-pre" id="email-pre"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-sec" onclick="closeOverlay('ov-email')">Cancelar</button>
+      <button class="btn-pri" onclick="sendEmail()">Abrir gestor de correo ✉</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let parteNum = 1;
+const N = 5;
+const photos = new Array(N).fill(null);
+
+function fmtExp(n){ return 'ES-' + String(n).padStart(4,'0'); }
+
+// Fotos
+const pgrid = document.getElementById('pgrid');
+for(let i=0;i<N;i++){
+  const s = document.createElement('div');
+  s.className='pslot'; s.id='ps'+i;
+  s.innerHTML=`<span class="plus">+</span><span class="lbl">Foto ${i+1}</span><button class="rm" onclick="rmP(event,${i})">×</button>`;
+  s.onclick=()=>document.getElementById('fi'+i).click();
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.capture='environment';
+  inp.id='fi'+i;inp.style.display='none';
+  inp.onchange=e=>loadP(e,i);
+  s.appendChild(inp);
+  pgrid.appendChild(s);
+}
+function loadP(e,i){
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    photos[i]=ev.target.result;
+    const s=document.getElementById('ps'+i);
+    let img=s.querySelector('img');
+    if(!img){img=document.createElement('img');s.appendChild(img);}
+    img.src=ev.target.result;
+    s.querySelector('.plus').style.display='none';
+    s.querySelector('.lbl').style.display='none';
+  };
+  r.readAsDataURL(f);
+}
+function rmP(e,i){
+  e.stopPropagation(); photos[i]=null;
+  const s=document.getElementById('ps'+i);
+  const img=s.querySelector('img'); if(img)img.remove();
+  s.querySelector('.plus').style.display='';
+  s.querySelector('.lbl').style.display='';
+  document.getElementById('fi'+i).value='';
+}
+
+// GPS
+function getLocation(){
+  const btn=document.getElementById('loc-btn');
+  btn.textContent='Detectando…'; btn.disabled=true;
+  if(!navigator.geolocation){showToast('GPS no disponible');btn.disabled=false;return;}
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const la=pos.coords.latitude.toFixed(6);
+    const lo=pos.coords.longitude.toFixed(6);
+    document.getElementById('lat').value=la;
+    document.getElementById('lng').value=lo;
+    const info=document.getElementById('loc-info');
+    info.style.display='block'; info.textContent='Cargando dirección…';
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json`)
+      .then(r=>r.json()).then(d=>{
+        const a=d.display_name||'';
+        document.getElementById('address').value=a;
+        info.textContent='📍 '+a;
+      }).catch(()=>{info.textContent='📍 '+la+', '+lo;});
+    btn.textContent='✓ Ubicación detectada'; btn.disabled=false;
+  },()=>{showToast('No se pudo obtener la ubicación');btn.textContent='Detectar mi ubicación';btn.disabled=false;});
+}
+
+// Helpers
+function gv(id){return(document.getElementById(id)||{}).value||'';}
+function gr(n){const e=document.querySelector(`input[name="${n}"]:checked`);return e?e.value:'—';}
+function hayDatos(){
+  return ['nombre','telefono','correo','direccion','poblacion','dias','obs','comercial']
+    .some(id=>gv(id).trim()!=='') || photos.some(Boolean);
+}
+
+// Nuevo parte
+function pedirNuevoParte(){
+  if(hayDatos()){
+    document.getElementById('confirm-msg').textContent=
+      `¿Crear el parte ${fmtExp(parteNum+1)}? Los datos actuales sin enviar se perderán.`;
+    openOverlay('ov-confirm');
+  } else { ejecutarNuevo(); }
+}
+function ejecutarNuevo(){
+  closeOverlay('ov-confirm');
+  parteNum++;
+  resetForm();
+  const exp=fmtExp(parteNum);
+  document.getElementById('expediente').value=exp;
+  const pill=document.getElementById('exp-pill');
+  pill.textContent=exp;
+  pill.style.background='rgba(255,255,255,0.40)';
+  setTimeout(()=>pill.style.background='',700);
+  showToast('Parte '+exp+' creado');
+}
+function resetForm(){
+  document.querySelectorAll('input:not([type=radio]):not([type=file]):not(#expediente),textarea')
+    .forEach(el=>el.value='');
+  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  photos.fill(null);
+  for(let i=0;i<N;i++){
+    const s=document.getElementById('ps'+i);
+    const img=s.querySelector('img'); if(img)img.remove();
+    s.querySelector('.plus').style.display='';
+    s.querySelector('.lbl').style.display='';
+    document.getElementById('fi'+i).value='';
+  }
+  document.getElementById('loc-info').style.display='none';
+  document.getElementById('loc-btn').textContent='Detectar mi ubicación';
+  document.getElementById('loc-btn').disabled=false;
+}
+
+// Email
+function buildBody(){
+  const exp=gv('expediente');
+  const fecha=new Date().toLocaleDateString('es-ES');
+  const fotos=photos.filter(Boolean).length;
+  return `PARTE DE TRABAJO — ${exp}
+Generado el ${fecha}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDENTIFICACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+N Expediente         : ${exp}
+Comercial            : ${gv('comercial')||'—'}
+Fecha firma contrato : ${gv('fecha-firma')||'—'}
+Fecha de ejecución   : ${gv('fecha-ejec')||'—'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATOS DEL CLIENTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Nombre               : ${gv('nombre')||'—'}
+Teléfono             : ${gv('telefono')||'—'}
+Correo               : ${gv('correo')||'—'}
+Dirección            : ${gv('direccion')||'—'}
+Población            : ${gv('poblacion')||'—'}
+Acceso obra          : ${gr('acceso')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATOS DE LA INSTALACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Días instalación     : ${gv('dias')||'—'}
+Estado terreno       : ${gv('terreno')||'—'}
+Ret. juego exist.    : ${gr('ret-juego')}
+Ret. caucho exist.   : ${gr('ret-caucho')}
+Atornillado          : ${gr('atornillado')}
+Solera               : ${gr('solera')}
+SBR                  : ${gv('sbr')||'—'}
+EPDM                 : ${gv('epdm')||'—'}
+Color                : ${gv('color')||'—'}
+Grosor               : ${gv('grosor')||'—'}
+Dados                : ${gv('dados')||'—'}
+Comprar material     : ${gv('material')||'—'}
+Césped               : ${gv('cesped')||'—'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALQUILER MATERIAL OBRA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Vallas obra          : ${gv('vallas')||'—'}
+Día colocación       : ${gv('dia-vallas')||'—'}
+Retirar vallas       : ${gv('ret-vallas')||'—'}
+Alquiler máquinas    : ${gv('maquinas')||'—'}
+Transporte           : ${gv('transporte')||'—'}
+Contenedor obra      : ${gv('cont-obra')||'—'}
+Contenedor reciclado : ${gv('cont-rec')||'—'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UBICACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Dirección GPS        : ${gv('address')||'—'}
+Google Maps          : ${gv('lat')&&gv('lng')?'https://maps.google.com/?q='+gv('lat')+','+gv('lng'):'—'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OBSERVACIONES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${gv('obs')||'—'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FOTOGRAFÍAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${fotos} foto(s). Adjuntar manualmente antes de enviar.
+
+──────────────────────────────
+Cemerplay · Parte generado automáticamente`;
+}
+function prepEmail(){
+  document.getElementById('email-pre').textContent=buildBody();
+  openOverlay('ov-email');
+}
+function sendEmail(){
+  const exp=gv('expediente');
+  const sub=`Parte de Trabajo ${exp} — ${gv('nombre')||'Cliente'}`;
+  const body=buildBody();
+  window.location.href=`mailto:comercial@cemerplay.com,gerente@cemerplay.com?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`;
+  showToast('Abriendo gestor de correo…');
+}
+
+// Overlays
+function openOverlay(id){document.getElementById(id).classList.add('active');}
+function closeOverlay(id){document.getElementById(id).classList.remove('active');}
+
+// Toast
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',2500);
+}
+
+// PWA install
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('install-bar').style.display='flex';
+});
+function installApp(){
+  if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;}
+  document.getElementById('install-bar').style.display='none';
+}
+</script>
+</body>
+</html>
