@@ -30,9 +30,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .field input:focus,.field textarea:focus{outline:none;border-color:#2D6A2D;background:white;box-shadow:0 0 0 3px rgba(45,106,45,.1)}
 .field input[readonly]{background:#eaf5ea;color:#1a5c1a;font-weight:700;border-color:#b2d8b2}
 .field textarea{resize:none;min-height:80px;line-height:1.5}
-.radio-row{display:flex;gap:16px;margin-top:2px}
-.radio-row label{display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;color:#333}
-.radio-row input[type=radio]{accent-color:#2D6A2D;width:17px;height:17px}
+.toggle-group{display:flex;gap:6px;margin-top:2px}
+.toggle-btn{flex:1;padding:9px 0;border:1.5px solid #ddd;border-radius:8px;background:#fafafa;color:#888;font-size:14px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;-webkit-tap-highlight-color:transparent;user-select:none}
+.toggle-btn.si.active{background:#2D6A2D;border-color:#2D6A2D;color:white}
+.toggle-btn.no.active{background:#c0392b;border-color:#c0392b;color:white}
 .loc-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid #2D6A2D;background:#eaf5ea;color:#1a5c1a;padding:11px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;width:100%}
 .loc-btn:active{background:#d4edd4}
 .loc-info{margin-top:8px;padding:9px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#2D6A2D;display:none;line-height:1.4}
@@ -104,10 +105,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="row2">
       <div class="field"><label>Población</label><input type="text" id="poblacion" placeholder="Sueca"></div>
       <div class="field"><label>Acceso obra</label>
-        <div class="radio-row">
-          <label><input type="radio" name="acceso" value="Sí"> Sí</label>
-          <label><input type="radio" name="acceso" value="No"> No</label>
+        <div class="toggle-group">
+          <button type="button" class="toggle-btn si" onclick="toggle(this,'acceso','Sí')">Sí</button>
+          <button type="button" class="toggle-btn no" onclick="toggle(this,'acceso','No')">No</button>
         </div>
+        <input type="hidden" id="acceso" value="">
       </div>
     </div>
   </div>
@@ -121,12 +123,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="field"><label>Estado terreno</label><input type="text" id="terreno" placeholder="Tierra, asfalto…"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Ret. juego existente</label><div class="radio-row"><label><input type="radio" name="ret-juego" value="Sí"> Sí</label><label><input type="radio" name="ret-juego" value="No"> No</label></div></div>
-      <div class="field"><label>Atornillado</label><div class="radio-row"><label><input type="radio" name="atornillado" value="Sí"> Sí</label><label><input type="radio" name="atornillado" value="No"> No</label></div></div>
+      <div class="field"><label>Ret. juego existente</label><div class="toggle-group"><button type="button" class="toggle-btn si" onclick="toggle(this,'ret-juego','Sí')">Sí</button><button type="button" class="toggle-btn no" onclick="toggle(this,'ret-juego','No')">No</button></div><input type="hidden" id="ret-juego" value=""></div>
+      <div class="field"><label>Atornillado</label><div class="toggle-group"><button type="button" class="toggle-btn si" onclick="toggle(this,'atornillado','Sí')">Sí</button><button type="button" class="toggle-btn no" onclick="toggle(this,'atornillado','No')">No</button></div><input type="hidden" id="atornillado" value=""></div>
     </div>
     <div class="row2">
-      <div class="field"><label>Ret. caucho existente</label><div class="radio-row"><label><input type="radio" name="ret-caucho" value="Sí"> Sí</label><label><input type="radio" name="ret-caucho" value="No"> No</label></div></div>
-      <div class="field"><label>Solera</label><div class="radio-row"><label><input type="radio" name="solera" value="Sí"> Sí</label><label><input type="radio" name="solera" value="No"> No</label></div></div>
+      <div class="field"><label>Ret. caucho existente</label><div class="toggle-group"><button type="button" class="toggle-btn si" onclick="toggle(this,'ret-caucho','Sí')">Sí</button><button type="button" class="toggle-btn no" onclick="toggle(this,'ret-caucho','No')">No</button></div><input type="hidden" id="ret-caucho" value=""></div>
+      <div class="field"><label>Solera</label><div class="toggle-group"><button type="button" class="toggle-btn si" onclick="toggle(this,'solera','Sí')">Sí</button><button type="button" class="toggle-btn no" onclick="toggle(this,'solera','No')">No</button></div><input type="hidden" id="solera" value=""></div>
     </div>
     <div class="row2">
       <div class="field"><label>SBR (kg/m²)</label><input type="text" id="sbr"></div>
@@ -245,11 +247,17 @@ emailjs.init('k2eioeyEZZ8V9j9IN');
 const EMAILJS_SERVICE = 'service_5gdi9hg';
 const EMAILJS_TEMPLATE = 'template_ytbyh3i';
 
-let parteNum = 1;
 const N = 5;
 const photos = new Array(N).fill(null);
 
 function fmtExp(n){ return 'ES-' + String(n).padStart(4,'0'); }
+
+// Contador persistente — sobrevive al cerrar la app
+function getCounter(){ return parseInt(localStorage.getItem('cemerplay_counter')||'0'); }
+function saveCounter(n){ localStorage.setItem('cemerplay_counter', String(n)); }
+
+let parteNum = getCounter();
+if(parteNum === 0){ parteNum = 1; saveCounter(1); }
 
 // Fotos
 const pgrid = document.getElementById('pgrid');
@@ -324,7 +332,13 @@ function getLocation(){
 
 // Helpers
 function gv(id){return(document.getElementById(id)||{}).value||'';}
-function gr(n){const e=document.querySelector(`input[name="${n}"]:checked`);return e?e.value:'—';}
+function gr(n){return gv(n)||'—';}
+function toggle(btn, field, val){
+  const group=btn.closest('.toggle-group');
+  group.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(field).value=val;
+}
 function hayDatos(){
   return ['nombre','telefono','correo','direccion','comercial']
     .some(id=>gv(id).trim()!=='') || photos.some(Boolean);
@@ -341,6 +355,7 @@ function pedirNuevoParte(){
 function ejecutarNuevo(){
   closeOverlay('ov-confirm');
   parteNum++;
+  saveCounter(parteNum);
   resetForm();
   const exp=fmtExp(parteNum);
   document.getElementById('expediente').value=exp;
@@ -354,6 +369,8 @@ function resetForm(){
   document.querySelectorAll('input:not([type=radio]):not([type=file]):not(#expediente),textarea')
     .forEach(el=>el.value='');
   document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('input[type=hidden]').forEach(el=>el.value='');
   photos.fill(null);
   for(let i=0;i<N;i++){
     const s=document.getElementById('ps'+i);
@@ -646,6 +663,10 @@ function showToast(msg, error=false){
   t.style.display='block';
   clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3000);
 }
+
+// Inicializar expediente al arrancar con el número guardado
+document.getElementById('expediente').value = fmtExp(parteNum);
+document.getElementById('exp-pill').textContent = fmtExp(parteNum);
 </script>
 </body>
 </html>
