@@ -11,6 +11,36 @@
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
+    authDomain: "cemerplay-partes.firebaseapp.com",
+    projectId: "cemerplay-partes",
+    storageBucket: "cemerplay-partes.firebasestorage.app",
+    messagingSenderId: "7185852141",
+    appId: "1:7185852141:web:b085205ff8d98baa53cee4"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window._guardarEnFirebase = async function(datos) {
+    try {
+      const docRef = await addDoc(collection(db, "partes"), {
+        ...datos,
+        estado: "pendiente",
+        creadoEn: serverTimestamp()
+      });
+      return docRef.id;
+    } catch(e) {
+      console.error("Error guardando en Firebase:", e);
+      throw e;
+    }
+  };
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f0;min-height:100vh;padding-bottom:2rem}
@@ -26,7 +56,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:11px;color:#666;font-weight:500;text-transform:uppercase;letter-spacing:.3px}
-.field input,.field select,.field textarea{border:1px solid #ddd;border-radius:8px;padding:9px 11px;font-size:15px;background:#fafafa;color:#111;width:100%;-webkit-appearance:none;appearance:none}
+.field input,.field textarea{border:1px solid #ddd;border-radius:8px;padding:9px 11px;font-size:15px;background:#fafafa;color:#111;width:100%;-webkit-appearance:none;appearance:none}
 .field input:focus,.field textarea:focus{outline:none;border-color:#2D6A2D;background:white;box-shadow:0 0 0 3px rgba(45,106,45,.1)}
 .field input[readonly]{background:#eaf5ea;color:#1a5c1a;font-weight:700;border-color:#b2d8b2}
 .field textarea{resize:none;min-height:80px;line-height:1.5}
@@ -225,7 +255,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="sheet-close" onclick="closeOverlay('ov-preview')">×</button>
     </div>
     <div class="sheet-body">
-      <div class="pdf-note">📄 Se generará un PDF con todos los datos y las fotografías, y se enviará automáticamente a <strong>comercial@cemerplay.com</strong> y <strong>gerente@cemerplay.com</strong>.</div>
+      <div class="pdf-note">📄 Se generará un PDF con todos los datos y las fotografías, y se enviará automáticamente a <strong>comercial@cemerplay.com</strong> y <strong>gerente@cemerplay.com</strong>. El parte quedará guardado para edición interna.</div>
       <div id="preview-content"></div>
       <div class="progress-wrap" id="progress-wrap">
         <div class="progress-label" id="progress-label">Generando PDF…</div>
@@ -242,7 +272,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-// EmailJS
 emailjs.init('k2eioeyEZZ8V9j9IN');
 const EMAILJS_SERVICE = 'service_5gdi9hg';
 const EMAILJS_TEMPLATE = 'template_ytbyh3i';
@@ -251,11 +280,8 @@ const N = 5;
 const photos = new Array(N).fill(null);
 
 function fmtExp(n){ return 'ES-' + String(n).padStart(4,'0'); }
-
-// Contador persistente — sobrevive al cerrar la app
 function getCounter(){ return parseInt(localStorage.getItem('cemerplay_counter')||'0'); }
 function saveCounter(n){ localStorage.setItem('cemerplay_counter', String(n)); }
-
 let parteNum = getCounter();
 if(parteNum === 0){ parteNum = 1; saveCounter(1); }
 
@@ -301,10 +327,7 @@ function getLocation(){
   const btn=document.getElementById('loc-btn');
   btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg> Detectando…';
   btn.disabled=true;
-  if(!navigator.geolocation){
-    showToast('GPS no disponible en este dispositivo',true);
-    btn.innerHTML='Detectar mi ubicación'; btn.disabled=false; return;
-  }
+  if(!navigator.geolocation){showToast('GPS no disponible',true);btn.innerHTML='Detectar mi ubicación';btn.disabled=false;return;}
   navigator.geolocation.getCurrentPosition(pos=>{
     const la=pos.coords.latitude.toFixed(6);
     const lo=pos.coords.longitude.toFixed(6);
@@ -317,38 +340,31 @@ function getLocation(){
         const a=d.display_name||la+', '+lo;
         document.getElementById('address').value=a;
         info.textContent='📍 '+a;
-      }).catch(()=>{
-        document.getElementById('address').value=la+', '+lo;
-        info.textContent='📍 '+la+', '+lo;
-      });
+      }).catch(()=>{document.getElementById('address').value=la+', '+lo;info.textContent='📍 '+la+', '+lo;});
     btn.innerHTML='✓ Ubicación detectada'; btn.disabled=false;
-  }, err=>{
+  },err=>{
     let msg='No se pudo obtener la ubicación';
-    if(err.code===1) msg='Permiso de ubicación denegado. Actívalo en Ajustes del móvil.';
-    showToast(msg, true);
+    if(err.code===1) msg='Permiso denegado. Actívalo en Ajustes del móvil.';
+    showToast(msg,true);
     btn.innerHTML='Detectar mi ubicación'; btn.disabled=false;
-  },{enableHighAccuracy:true, timeout:15000});
+  },{enableHighAccuracy:true,timeout:15000});
 }
 
-// Helpers
 function gv(id){return(document.getElementById(id)||{}).value||'';}
-function gr(n){return gv(n)||'—';}
-function toggle(btn, field, val){
+function gr(id){return gv(id)||'—';}
+function toggle(btn,field,val){
   const group=btn.closest('.toggle-group');
   group.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(field).value=val;
 }
 function hayDatos(){
-  return ['nombre','telefono','correo','direccion','comercial']
-    .some(id=>gv(id).trim()!=='') || photos.some(Boolean);
+  return ['nombre','telefono','correo','direccion','comercial'].some(id=>gv(id).trim()!=='') || photos.some(Boolean);
 }
 
-// Nuevo parte
 function pedirNuevoParte(){
   if(hayDatos()){
-    document.getElementById('confirm-msg').textContent=
-      `¿Crear el parte ${fmtExp(parteNum+1)}? Los datos sin enviar se perderán.`;
+    document.getElementById('confirm-msg').textContent=`¿Crear el parte ${fmtExp(parteNum+1)}? Los datos sin enviar se perderán.`;
     openOverlay('ov-confirm');
   } else { ejecutarNuevo(); }
 }
@@ -366,9 +382,7 @@ function ejecutarNuevo(){
   showToast('Parte '+exp+' creado');
 }
 function resetForm(){
-  document.querySelectorAll('input:not([type=radio]):not([type=file]):not(#expediente),textarea')
-    .forEach(el=>el.value='');
-  document.querySelectorAll('input[type=radio]').forEach(el=>el.checked=false);
+  document.querySelectorAll('input:not([type=radio]):not([type=file]):not(#expediente),textarea').forEach(el=>el.value='');
   document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('input[type=hidden]').forEach(el=>el.value='');
   photos.fill(null);
@@ -384,289 +398,262 @@ function resetForm(){
   document.getElementById('loc-btn').disabled=false;
 }
 
-// Vista previa
-function row(label, value){
-  return `<tr><td>${label}</td><td>${value||'—'}</td></tr>`;
-}
+function row(label,value){return `<tr><td>${label}</td><td>${value||'—'}</td></tr>`;}
 function prepEnvio(){
-  const html = `
+  const html=`
     <span class="preview-sec">Identificación</span>
     <table class="preview-table">
-      ${row('N Expediente', gv('expediente'))}
-      ${row('Comercial', gv('comercial'))}
-      ${row('Firma contrato', gv('fecha-firma'))}
-      ${row('Fecha ejecución', gv('fecha-ejec'))}
+      ${row('N Expediente',gv('expediente'))}${row('Comercial',gv('comercial'))}
+      ${row('Firma contrato',gv('fecha-firma'))}${row('Fecha ejecución',gv('fecha-ejec'))}
     </table>
     <span class="preview-sec">Cliente</span>
     <table class="preview-table">
-      ${row('Nombre', gv('nombre'))}
-      ${row('Teléfono', gv('telefono'))}
-      ${row('Correo', gv('correo'))}
-      ${row('Dirección', gv('direccion'))}
-      ${row('Población', gv('poblacion'))}
-      ${row('Acceso obra', gr('acceso'))}
+      ${row('Nombre',gv('nombre'))}${row('Teléfono',gv('telefono'))}
+      ${row('Correo',gv('correo'))}${row('Dirección',gv('direccion'))}
+      ${row('Población',gv('poblacion'))}${row('Acceso obra',gr('acceso'))}
     </table>
     <span class="preview-sec">Instalación</span>
     <table class="preview-table">
-      ${row('Días', gv('dias'))}
-      ${row('Terreno', gv('terreno'))}
-      ${row('Ret. juego', gr('ret-juego'))}
-      ${row('Ret. caucho', gr('ret-caucho'))}
-      ${row('Atornillado', gr('atornillado'))}
-      ${row('Solera', gr('solera'))}
-      ${row('SBR', gv('sbr'))} ${row('EPDM', gv('epdm'))}
-      ${row('Color', gv('color'))} ${row('Grosor', gv('grosor'))}
-      ${row('Dados', gv('dados'))} ${row('Material', gv('material'))}
-      ${row('Césped', gv('cesped'))}
+      ${row('Días',gv('dias'))}${row('Terreno',gv('terreno'))}
+      ${row('Ret. juego',gr('ret-juego'))}${row('Ret. caucho',gr('ret-caucho'))}
+      ${row('Atornillado',gr('atornillado'))}${row('Solera',gr('solera'))}
+      ${row('SBR',gv('sbr'))}${row('EPDM',gv('epdm'))}
+      ${row('Color',gv('color'))}${row('Grosor',gv('grosor'))}
+      ${row('Dados',gv('dados'))}${row('Material',gv('material'))}
+      ${row('Césped',gv('cesped'))}
     </table>
     <span class="preview-sec">Alquiler</span>
     <table class="preview-table">
-      ${row('Vallas', gv('vallas'))}
-      ${row('Día colocación', gv('dia-vallas'))}
-      ${row('Retirar vallas', gv('ret-vallas'))}
-      ${row('Máquinas', gv('maquinas'))}
-      ${row('Transporte', gv('transporte'))}
-      ${row('Cont. obra', gv('cont-obra'))}
-      ${row('Cont. reciclado', gv('cont-rec'))}
+      ${row('Vallas',gv('vallas'))}${row('Día colocación',gv('dia-vallas'))}
+      ${row('Retirar vallas',gv('ret-vallas'))}${row('Máquinas',gv('maquinas'))}
+      ${row('Transporte',gv('transporte'))}${row('Cont. obra',gv('cont-obra'))}
+      ${row('Cont. reciclado',gv('cont-rec'))}
     </table>
     <span class="preview-sec">Ubicación</span>
     <table class="preview-table">
-      ${row('Dirección GPS', gv('address'))}
-      ${row('Coordenadas', gv('lat') ? gv('lat')+', '+gv('lng') : '—')}
+      ${row('Dirección GPS',gv('address'))}
+      ${row('Coordenadas',gv('lat')?gv('lat')+', '+gv('lng'):'—')}
     </table>
     <span class="preview-sec">Observaciones</span>
-    <table class="preview-table">${row('', gv('obs'))}</table>
+    <table class="preview-table">${row('',gv('obs'))}</table>
     <span class="preview-sec">Fotografías</span>
-    <table class="preview-table">${row('Adjuntas', photos.filter(Boolean).length+' de 5')}</table>
-  `;
+    <table class="preview-table">${row('Adjuntas',photos.filter(Boolean).length+' de 5')}</table>`;
   document.getElementById('preview-content').innerHTML=html;
   document.getElementById('progress-wrap').style.display='none';
   document.getElementById('preview-actions').style.display='flex';
   openOverlay('ov-preview');
 }
 
-// Generar PDF y enviar
+function recogerDatos(){
+  return {
+    expediente:gv('expediente'), comercial:gv('comercial'),
+    fechaFirma:gv('fecha-firma'), fechaEjec:gv('fecha-ejec'),
+    nombre:gv('nombre'), telefono:gv('telefono'), correo:gv('correo'),
+    direccion:gv('direccion'), poblacion:gv('poblacion'), acceso:gr('acceso'),
+    dias:gv('dias'), terreno:gv('terreno'),
+    retJuego:gr('ret-juego'), retCaucho:gr('ret-caucho'),
+    atornillado:gr('atornillado'), solera:gr('solera'),
+    sbr:gv('sbr'), epdm:gv('epdm'), color:gv('color'), grosor:gv('grosor'),
+    dados:gv('dados'), material:gv('material'), cesped:gv('cesped'),
+    vallas:gv('vallas'), diaVallas:gv('dia-vallas'), retVallas:gv('ret-vallas'),
+    maquinas:gv('maquinas'), transporte:gv('transporte'),
+    contObra:gv('cont-obra'), contRec:gv('cont-rec'),
+    obs:gv('obs'),
+    lat:gv('lat'), lng:gv('lng'), address:gv('address'),
+    numFotos: photos.filter(Boolean).length
+  };
+}
+
 async function generarYEnviar(){
   document.getElementById('preview-actions').style.display='none';
   const pw=document.getElementById('progress-wrap');
   pw.style.display='flex';
   setProgress(5,'Preparando PDF…');
 
+  const datos = recogerDatos();
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const W=210, margin=15, colW=W-margin*2;
   let y=margin;
 
-  // Fuente y colores
-  const VERDE=[45,106,45];
-  const VERDE_CLAR=[234,245,234];
-  const GRIS=[245,245,245];
+  const VERDE=[45,106,45], GRIS=[245,245,245], VERDE_CLAR=[234,245,234];
 
   function seccion(titulo){
     doc.setFillColor(...VERDE);
-    doc.rect(margin, y, colW, 7, 'F');
+    doc.rect(margin,y,colW,7,'F');
     doc.setTextColor(255,255,255);
-    doc.setFontSize(9); doc.setFont('helvetica','bold');
-    doc.text(titulo.toUpperCase(), margin+3, y+5);
-    doc.setTextColor(0,0,0);
-    y+=9;
-  }
-  function campo(label, valor, highlight=false){
-    if(y>270){doc.addPage();y=margin;}
-    if(highlight) doc.setFillColor(...VERDE_CLAR);
-    else doc.setFillColor(...GRIS);
-    doc.rect(margin, y, colW/2, 6, 'F');
-    doc.setFontSize(8); doc.setFont('helvetica','bold');
-    doc.setTextColor(80,80,80);
-    doc.text(label, margin+2, y+4.2);
-    doc.setFont('helvetica','normal');
-    doc.setTextColor(0,0,0);
-    const val = valor||'—';
-    doc.text(val, margin+colW/2+2, y+4.2);
-    doc.setDrawColor(220,220,220);
-    doc.rect(margin, y, colW, 6);
-    y+=6;
+    doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text(titulo.toUpperCase(),margin+3,y+5);
+    doc.setTextColor(0,0,0);y+=9;
   }
   function campo2(l1,v1,l2,v2){
     if(y>270){doc.addPage();y=margin;}
     const hw=colW/2;
     doc.setFillColor(...GRIS);
-    doc.rect(margin, y, hw/2, 6,'F');
-    doc.rect(margin+hw, y, hw/2, 6,'F');
-    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(80,80,80);
-    doc.text(l1, margin+2, y+4.2);
-    doc.text(l2, margin+hw+2, y+4.2);
-    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
-    doc.text(v1||'—', margin+hw/2+1, y+4.2);
-    doc.text(v2||'—', margin+hw+hw/2+1, y+4.2);
-    doc.setDrawColor(220,220,220);
-    doc.rect(margin, y, colW, 6);
+    doc.rect(margin,y,hw/2,6,'F');
+    doc.rect(margin+hw,y,hw/2,6,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);
+    doc.text(l1,margin+2,y+4.2);
+    if(l2)doc.text(l2,margin+hw+2,y+4.2);
+    doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
+    doc.text(v1||'—',margin+hw/2+1,y+4.2);
+    if(l2)doc.text(v2||'—',margin+hw+hw/2+1,y+4.2);
+    doc.setDrawColor(220,220,220);doc.rect(margin,y,colW,6);
+    y+=6;
+  }
+  function campo(l,v){
+    if(y>270){doc.addPage();y=margin;}
+    doc.setFillColor(...GRIS);doc.rect(margin,y,colW/2,6,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);
+    doc.text(l,margin+2,y+4.2);
+    doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
+    doc.text(v||'—',margin+colW/2+2,y+4.2);
+    doc.setDrawColor(220,220,220);doc.rect(margin,y,colW,6);
     y+=6;
   }
 
   // Cabecera
-  doc.setFillColor(...VERDE);
-  doc.rect(0,0,W,22,'F');
+  doc.setFillColor(...VERDE);doc.rect(0,0,W,22,'F');
   doc.setTextColor(255,255,255);
-  doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('PARTE DE TRABAJO', margin, 13);
-  doc.setFontSize(11); doc.setFont('helvetica','normal');
-  doc.text(gv('expediente'), W-margin, 13, {align:'right'});
+  doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.text('PARTE DE TRABAJO',margin,13);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');
+  doc.text(datos.expediente,W-margin,13,{align:'right'});
   doc.setFontSize(9);
-  doc.text('Cemerplay · '+new Date().toLocaleDateString('es-ES'), W-margin, 19, {align:'right'});
-  doc.setTextColor(0,0,0);
-  y=28;
+  doc.text('Cemerplay · '+new Date().toLocaleDateString('es-ES'),W-margin,19,{align:'right'});
+  doc.setTextColor(0,0,0);y=28;
 
   setProgress(15,'Añadiendo datos…');
-
   seccion('Identificación');
-  campo2('N Expediente',gv('expediente'),'Comercial',gv('comercial'));
-  campo2('Firma contrato',gv('fecha-firma'),'Fecha ejecución',gv('fecha-ejec'));
-  y+=3;
-
+  campo2('N Expediente',datos.expediente,'Comercial',datos.comercial);
+  campo2('Firma contrato',datos.fechaFirma,'Fecha ejecución',datos.fechaEjec);y+=3;
   seccion('Datos del cliente');
-  campo2('Nombre cliente',gv('nombre'),'Teléfono',gv('telefono'));
-  campo('Correo electrónico',gv('correo'));
-  campo('Dirección obra',gv('direccion'));
-  campo2('Población',gv('poblacion'),'Acceso obra',gr('acceso'));
-  y+=3;
-
+  campo2('Nombre cliente',datos.nombre,'Teléfono',datos.telefono);
+  campo('Correo electrónico',datos.correo);
+  campo('Dirección obra',datos.direccion);
+  campo2('Población',datos.poblacion,'Acceso obra',datos.acceso);y+=3;
   seccion('Datos de la instalación');
-  campo2('Días instalación',gv('dias'),'Estado terreno',gv('terreno'));
-  campo2('Ret. juego existente',gr('ret-juego'),'Ret. caucho existente',gr('ret-caucho'));
-  campo2('Atornillado',gr('atornillado'),'Solera',gr('solera'));
-  campo2('SBR (kg/m²)',gv('sbr'),'EPDM (kg/m²)',gv('epdm'));
-  campo2('Color',gv('color'),'Grosor (cm)',gv('grosor'));
-  campo2('Dados',gv('dados'),'Comprar material',gv('material'));
-  campo('Césped',gv('cesped'));
-  y+=3;
-
+  campo2('Días instalación',datos.dias,'Estado terreno',datos.terreno);
+  campo2('Ret. juego existente',datos.retJuego,'Ret. caucho existente',datos.retCaucho);
+  campo2('Atornillado',datos.atornillado,'Solera',datos.solera);
+  campo2('SBR (kg/m²)',datos.sbr,'EPDM (kg/m²)',datos.epdm);
+  campo2('Color',datos.color,'Grosor (cm)',datos.grosor);
+  campo2('Dados',datos.dados,'Comprar material',datos.material);
+  campo('Césped',datos.cesped);y+=3;
   seccion('Alquiler material obra');
-  campo2('Vallas obra',gv('vallas'),'Día colocación',gv('dia-vallas'));
-  campo2('Retirar vallas',gv('ret-vallas'),'Alquiler máquinas',gv('maquinas'));
-  campo2('Transporte',gv('transporte'),'Contenedor obra',gv('cont-obra'));
-  campo('Contenedor reciclado',gv('cont-rec'));
-  y+=3;
-
+  campo2('Vallas obra',datos.vallas,'Día colocación',datos.diaVallas);
+  campo2('Retirar vallas',datos.retVallas,'Alquiler máquinas',datos.maquinas);
+  campo2('Transporte',datos.transporte,'Contenedor obra',datos.contObra);
+  campo('Contenedor reciclado',datos.contRec);y+=3;
   seccion('Ubicación GPS');
-  campo('Dirección detectada',gv('address'));
-  const mapUrl = gv('lat')&&gv('lng') ? 'maps.google.com/?q='+gv('lat')+','+gv('lng') : '—';
-  campo('Google Maps',mapUrl);
-  y+=3;
-
-  if(gv('obs')){
+  campo('Dirección detectada',datos.address);
+  const mapUrl=datos.lat&&datos.lng?'maps.google.com/?q='+datos.lat+','+datos.lng:'—';
+  campo('Google Maps',mapUrl);y+=3;
+  if(datos.obs){
     seccion('Observaciones');
     doc.setFillColor(...GRIS);
-    const obsLines=doc.splitTextToSize(gv('obs'), colW-6);
-    const obsH=Math.max(10, obsLines.length*5+4);
-    doc.rect(margin,y,colW,obsH,'F');
-    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
-    doc.text(obsLines, margin+3, y+5);
-    y+=obsH+3;
+    const lines=doc.splitTextToSize(datos.obs,colW-6);
+    const h=Math.max(10,lines.length*5+4);
+    doc.rect(margin,y,colW,h,'F');
+    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
+    doc.text(lines,margin+3,y+5);y+=h+3;
   }
 
   setProgress(40,'Insertando fotografías…');
-
   const fotosValidas=photos.filter(Boolean);
   if(fotosValidas.length>0){
-    doc.addPage(); y=margin;
-    seccion('Fotografías ('+fotosValidas.length+')');
-    y+=3;
-    const fotoW=(colW-8)/2;
-    const fotoH=65;
+    doc.addPage();y=margin;
+    seccion('Fotografías ('+fotosValidas.length+')');y+=3;
+    const fotoW=(colW-8)/2, fotoH=65;
     for(let i=0;i<fotosValidas.length;i++){
-      setProgress(40+Math.round((i/fotosValidas.length)*45), `Procesando foto ${i+1} de ${fotosValidas.length}…`);
+      setProgress(40+Math.round((i/fotosValidas.length)*45),`Procesando foto ${i+1} de ${fotosValidas.length}…`);
       const col=i%2;
       const fx=margin+col*(fotoW+8);
-      if(col===0&&i>0) y+=fotoH+8;
+      if(col===0&&i>0)y+=fotoH+8;
       if(y+fotoH>285){doc.addPage();y=margin;}
       try{
         doc.addImage(fotosValidas[i],'JPEG',fx,y,fotoW,fotoH,'','MEDIUM');
-        doc.setDrawColor(...VERDE);
-        doc.rect(fx,y,fotoW,fotoH);
-        doc.setFontSize(8); doc.setTextColor(100,100,100);
-        doc.text('Foto '+(i+1), fx+2, y+fotoH-2);
+        doc.setDrawColor(...VERDE);doc.rect(fx,y,fotoW,fotoH);
+        doc.setFontSize(8);doc.setTextColor(100,100,100);
+        doc.text('Foto '+(i+1),fx+2,y+fotoH-2);
       }catch(e){}
       await new Promise(r=>setTimeout(r,50));
     }
   }
 
+  setProgress(80,'Guardando en la nube…');
+
+  // Guardar en Firebase
+  let firebaseId = null;
+  try {
+    if(window._guardarEnFirebase){
+      firebaseId = await window._guardarEnFirebase(datos);
+    }
+  } catch(e){ console.warn('Firebase no disponible:', e); }
+
   setProgress(90,'Enviando correo…');
 
-  // Convertir PDF a base64
-  const pdfB64 = doc.output('datauristring');
-  const pdfBase64 = pdfB64.split(',')[1];
-
   // HTML del correo
-  const htmlCorreo = `
-<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+  const adminUrl = 'https://cemer-partes.vercel.app/admin.html';
+  const htmlCorreo=`<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
   <div style="background:#2D6A2D;padding:16px 20px;border-radius:8px 8px 0 0">
-    <h2 style="color:white;margin:0;font-size:18px">Parte de Trabajo — ${gv('expediente')}</h2>
+    <h2 style="color:white;margin:0;font-size:18px">Parte de Trabajo — ${datos.expediente}</h2>
     <p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:13px">Cemerplay · ${new Date().toLocaleDateString('es-ES')}</p>
   </div>
   <div style="border:1px solid #ddd;border-top:none;padding:16px 20px;border-radius:0 0 8px 8px">
-    <p style="color:#555;font-size:13px;margin:0 0 16px">Se adjunta el PDF completo con todos los datos y fotografías.</p>
+    <p style="color:#555;font-size:13px;margin:0 0 12px">Nuevo parte recibido. El PDF completo se ha descargado en el dispositivo del comercial.</p>
+    <a href="${adminUrl}" style="display:inline-block;background:#2D6A2D;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:16px">→ Abrir panel interno para editar</a>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase;letter-spacing:.5px">CLIENTE</td></tr>
-      <tr><td style="padding:5px 8px;color:#666;width:40%">Nombre</td><td style="padding:5px 8px;font-weight:600">${gv('nombre')||'—'}</td></tr>
-      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Teléfono</td><td style="padding:5px 8px;font-weight:600">${gv('telefono')||'—'}</td></tr>
-      <tr><td style="padding:5px 8px;color:#666">Dirección</td><td style="padding:5px 8px">${gv('direccion')||'—'}, ${gv('poblacion')||''}</td></tr>
-      <tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase;letter-spacing:.5px">INSTALACIÓN</td></tr>
-      <tr><td style="padding:5px 8px;color:#666">Días</td><td style="padding:5px 8px;font-weight:600">${gv('dias')||'—'}</td></tr>
-      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Terreno</td><td style="padding:5px 8px">${gv('terreno')||'—'}</td></tr>
-      <tr><td style="padding:5px 8px;color:#666">Comercial</td><td style="padding:5px 8px;font-weight:600">${gv('comercial')||'—'}</td></tr>
-      ${gv('lat')&&gv('lng') ? `<tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase;letter-spacing:.5px">UBICACIÓN</td></tr><tr><td style="padding:5px 8px;color:#666">Google Maps</td><td style="padding:5px 8px"><a href="https://maps.google.com/?q=${gv('lat')},${gv('lng')}" style="color:#2D6A2D">Ver en mapa</a></td></tr>` : ''}
+      <tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase">CLIENTE</td></tr>
+      <tr><td style="padding:5px 8px;color:#666;width:40%">Nombre</td><td style="padding:5px 8px;font-weight:600">${datos.nombre||'—'}</td></tr>
+      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Teléfono</td><td style="padding:5px 8px;font-weight:600">${datos.telefono||'—'}</td></tr>
+      <tr><td style="padding:5px 8px;color:#666">Dirección</td><td style="padding:5px 8px">${datos.direccion||'—'}, ${datos.poblacion||''}</td></tr>
+      <tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase">INSTALACIÓN</td></tr>
+      <tr><td style="padding:5px 8px;color:#666">Días</td><td style="padding:5px 8px;font-weight:600">${datos.dias||'—'}</td></tr>
+      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Terreno</td><td style="padding:5px 8px">${datos.terreno||'—'}</td></tr>
+      <tr><td style="padding:5px 8px;color:#666">Comercial</td><td style="padding:5px 8px;font-weight:600">${datos.comercial||'—'}</td></tr>
+      ${datos.lat&&datos.lng?`<tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase">UBICACIÓN</td></tr><tr><td style="padding:5px 8px;color:#666">Google Maps</td><td style="padding:5px 8px"><a href="https://maps.google.com/?q=${datos.lat},${datos.lng}" style="color:#2D6A2D">Ver en mapa</a></td></tr>`:''}
     </table>
-    <p style="color:#999;font-size:11px;margin:16px 0 0;border-top:1px solid #eee;padding-top:12px">El PDF completo con todos los campos y ${fotosValidas.length} fotografía(s) se encuentra adjunto.</p>
+    <p style="color:#999;font-size:11px;margin:16px 0 0;border-top:1px solid #eee;padding-top:12px">Haz clic en el botón verde para abrir el panel interno y completar el presupuesto y estado del parte.</p>
   </div>
 </div>`;
 
-  try {
-    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
-      expediente: gv('expediente'),
-      cliente: gv('nombre')||'Sin nombre',
-      contenido: htmlCorreo,
+  try{
+    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE,{
+      expediente:datos.expediente,
+      cliente:datos.nombre||'Sin nombre',
+      contenido:htmlCorreo,
     });
     setProgress(100,'¡Enviado!');
     setTimeout(()=>{
       closeOverlay('ov-preview');
-      showToast('✓ Correo enviado correctamente');
+      showToast('✓ Parte enviado y guardado correctamente');
       document.getElementById('btn-enviar').disabled=false;
     },800);
-  } catch(err){
+  }catch(err){
     console.error(err);
-    setProgress(100,'Error al enviar');
-    document.getElementById('progress-label').style.color='#c0392b';
+    showToast('Error al enviar correo',true);
     document.getElementById('preview-actions').style.display='flex';
-    showToast('Error al enviar. Comprueba la conexión.', true);
     document.getElementById('btn-enviar').disabled=false;
   }
 
-  // Descargar PDF en el móvil
-  doc.save('Parte_'+gv('expediente')+'.pdf');
+  doc.save('Parte_'+datos.expediente+'.pdf');
 }
 
-function setProgress(pct, label){
+function setProgress(pct,label){
   document.getElementById('progress-fill').style.width=pct+'%';
   document.getElementById('progress-label').textContent=label;
 }
-
-// Overlays
 function openOverlay(id){document.getElementById(id).classList.add('active');}
 function closeOverlay(id){document.getElementById(id).classList.remove('active');}
-
-// Toast
-function showToast(msg, error=false){
+function showToast(msg,error=false){
   const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.className='toast'+(error?' error':'');
-  t.style.display='block';
-  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3000);
+  t.textContent=msg;t.className='toast'+(error?' error':'');t.style.display='block';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000);
 }
 
-// Inicializar expediente al arrancar con el número guardado
-document.getElementById('expediente').value = fmtExp(parteNum);
-document.getElementById('exp-pill').textContent = fmtExp(parteNum);
+document.getElementById('expediente').value=fmtExp(parteNum);
+document.getElementById('exp-pill').textContent=fmtExp(parteNum);
 </script>
 </body>
 </html>

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a3a5c">
+<title>Panel Interno — Cemerplay</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+.header{background:#1a3a5c;color:white;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header h1{font-size:18px;font-weight:600}
+.header span{font-size:12px;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px}
+.container{max-width:1100px;margin:0 auto;padding:1.5rem}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+.stat{background:white;border-radius:12px;padding:1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.stat .num{font-size:28px;font-weight:700;color:#1a3a5c}
+.stat .lbl{font-size:12px;color:#888;margin-top:2px}
+.filters{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.filter-btn{padding:7px 16px;border-radius:20px;border:1.5px solid #ddd;background:white;font-size:13px;cursor:pointer;font-weight:500;color:#555}
+.filter-btn.active{background:#1a3a5c;border-color:#1a3a5c;color:white}
+.search{flex:1;min-width:200px;padding:7px 14px;border-radius:20px;border:1.5px solid #ddd;font-size:13px;background:white}
+.search:focus{outline:none;border-color:#1a3a5c}
+.partes-grid{display:flex;flex-direction:column;gap:10px}
+.parte-card{background:white;border-radius:12px;padding:1.25rem;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;border-left:4px solid #ddd;transition:box-shadow .15s}
+.parte-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.parte-card.pendiente{border-left-color:#f39c12}
+.parte-card.en-proceso{border-left-color:#3498db}
+.parte-card.presupuestado{border-left-color:#9b59b6}
+.parte-card.aprobado{border-left-color:#2D6A2D}
+.parte-card.ejecutado{border-left-color:#27ae60}
+.parte-card.cancelado{border-left-color:#e74c3c}
+.parte-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.parte-exp{font-size:16px;font-weight:700;color:#1a3a5c}
+.parte-fecha{font-size:12px;color:#aaa}
+.parte-cliente{font-size:14px;color:#333;font-weight:500;margin-bottom:4px}
+.parte-meta{display:flex;gap:12px;font-size:12px;color:#888;flex-wrap:wrap}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.badge.pendiente{background:#fef3cd;color:#856404}
+.badge.en-proceso{background:#cce5ff;color:#004085}
+.badge.presupuestado{background:#e8d5f5;color:#6b2fa0}
+.badge.aprobado{background:#d4edda;color:#155724}
+.badge.ejecutado{background:#c3e6cb;color:#0e4220}
+.badge.cancelado{background:#f8d7da;color:#721c24}
+.empty{text-align:center;padding:3rem;color:#aaa;font-size:15px}
+.loading{text-align:center;padding:3rem;color:#888}
+
+/* Modal edición */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.active{display:flex}
+.modal{background:white;border-radius:16px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{background:#1a3a5c;color:white;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-header h2{font-size:17px;font-weight:600}
+.modal-close{background:none;border:none;color:white;font-size:22px;cursor:pointer;opacity:.8}
+.modal-close:hover{opacity:1}
+.modal-body{overflow-y:auto;flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
+.modal-footer{padding:1rem 1.5rem;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+
+.sec{background:#f8f9fa;border-radius:10px;overflow:hidden}
+.sec-head{background:#1a3a5c;color:white;font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;padding:6px 12px}
+.sec-body{padding:12px}
+.dato-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dato{font-size:13px;color:#444;padding:3px 0}
+.dato span{color:#888;font-size:11px;display:block;margin-bottom:1px}
+.dato strong{color:#111}
+
+.interno-sec{background:#fff8e1;border-radius:10px;overflow:hidden;border:1.5px solid #ffe082}
+.interno-head{background:#f39c12;color:white;font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;padding:6px 12px}
+.interno-body{padding:12px;display:flex;flex-direction:column;gap:10px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field label{font-size:11px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.form-field input,.form-field select,.form-field textarea{border:1.5px solid #ddd;border-radius:8px;padding:8px 10px;font-size:14px;background:white;color:#111;width:100%}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:#f39c12;box-shadow:0 0 0 3px rgba(243,156,18,.15)}
+.form-field textarea{resize:vertical;min-height:60px}
+.form-field.full{grid-column:1/-1}
+.total-row{display:flex;align-items:center;justify-content:space-between;background:#2D6A2D;color:white;padding:10px 14px;border-radius:8px;font-size:15px;font-weight:700;margin-top:4px}
+
+.btn{padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600;border:none}
+.btn-save{background:#2D6A2D;color:white}
+.btn-save:hover{background:#235223}
+.btn-cancel{background:#f5f5f5;color:#333;border:1.5px solid #ddd}
+.btn-pdf{background:#1a3a5c;color:white}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#2D6A2D;color:white;padding:10px 20px;border-radius:24px;font-size:14px;font-weight:500;display:none;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.toast.error{background:#c0392b}
+
+@media(max-width:600px){
+  .stats{grid-template-columns:1fr 1fr}
+  .dato-grid,.form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Panel Interno · Cemerplay</h1>
+  <span id="sync-badge">Cargando…</span>
+</div>
+
+<div class="container">
+  <div class="stats">
+    <div class="stat"><div class="num" id="st-total">0</div><div class="lbl">Total partes</div></div>
+    <div class="stat"><div class="num" id="st-pendiente" style="color:#f39c12">0</div><div class="lbl">Pendientes</div></div>
+    <div class="stat"><div class="num" id="st-aprobado" style="color:#2D6A2D">0</div><div class="lbl">Aprobados</div></div>
+    <div class="stat"><div class="num" id="st-total-imp" style="color:#1a3a5c">0€</div><div class="lbl">Total presupuestado</div></div>
+  </div>
+
+  <div class="filters">
+    <input class="search" id="search" placeholder="Buscar por cliente, expediente…" oninput="filtrar()">
+    <button class="filter-btn active" onclick="setFiltro('todos',this)">Todos</button>
+    <button class="filter-btn" onclick="setFiltro('pendiente',this)">Pendiente</button>
+    <button class="filter-btn" onclick="setFiltro('en-proceso',this)">En proceso</button>
+    <button class="filter-btn" onclick="setFiltro('presupuestado',this)">Presupuestado</button>
+    <button class="filter-btn" onclick="setFiltro('aprobado',this)">Aprobado</button>
+    <button class="filter-btn" onclick="setFiltro('ejecutado',this)">Ejecutado</button>
+  </div>
+
+  <div class="partes-grid" id="lista"><div class="loading">Conectando con la base de datos…</div></div>
+</div>
+
+<!-- Modal edición -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Parte ES-0001</h2>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-save" onclick="guardarCambios()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
+  authDomain: "cemerplay-partes.firebaseapp.com",
+  projectId: "cemerplay-partes",
+  storageBucket: "cemerplay-partes.firebasestorage.app",
+  messagingSenderId: "7185852141",
+  appId: "1:7185852141:web:b085205ff8d98baa53cee4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let todosPartes = [];
+let filtroActual = 'todos';
+let parteActual = null;
+let docIdActual = null;
+
+async function cargarPartes(){
+  try {
+    const q = query(collection(db, "partes"), orderBy("creadoEn","desc"));
+    const snap = await getDocs(q);
+    todosPartes = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    document.getElementById('sync-badge').textContent = todosPartes.length + ' partes';
+    actualizarStats();
+    renderLista();
+  } catch(e) {
+    document.getElementById('sync-badge').textContent = 'Error de conexión';
+    document.getElementById('lista').innerHTML = '<div class="empty">No se pudo conectar con la base de datos.<br>Comprueba que Firestore está activo.</div>';
+  }
+}
+
+function actualizarStats(){
+  const total = todosPartes.length;
+  const pendientes = todosPartes.filter(p=>p.estado==='pendiente').length;
+  const aprobados = todosPartes.filter(p=>p.estado==='aprobado').length;
+  const totalImp = todosPartes.reduce((s,p)=>s+(parseFloat(p.presupuestoTotal)||0),0);
+  document.getElementById('st-total').textContent = total;
+  document.getElementById('st-pendiente').textContent = pendientes;
+  document.getElementById('st-aprobado').textContent = aprobados;
+  document.getElementById('st-total-imp').textContent = totalImp.toLocaleString('es-ES',{minimumFractionDigits:0})+'€';
+}
+
+function renderLista(){
+  const busq = document.getElementById('search').value.toLowerCase();
+  const lista = document.getElementById('lista');
+  let partes = todosPartes.filter(p => {
+    const matchFiltro = filtroActual==='todos' || p.estado===filtroActual;
+    const matchBusq = !busq ||
+      (p.expediente||'').toLowerCase().includes(busq) ||
+      (p.nombre||'').toLowerCase().includes(busq) ||
+      (p.comercial||'').toLowerCase().includes(busq) ||
+      (p.poblacion||'').toLowerCase().includes(busq);
+    return matchFiltro && matchBusq;
+  });
+  if(!partes.length){
+    lista.innerHTML='<div class="empty">No hay partes que coincidan con los filtros.</div>';
+    return;
+  }
+  lista.innerHTML = partes.map(p => {
+    const fecha = p.creadoEn?.toDate ? p.creadoEn.toDate().toLocaleDateString('es-ES') : '—';
+    const estado = p.estado||'pendiente';
+    const imp = p.presupuestoTotal ? parseFloat(p.presupuestoTotal).toLocaleString('es-ES',{minimumFractionDigits:2})+'€' : '';
+    return `<div class="parte-card ${estado}" onclick="abrirParte('${p.id}')">
+      <div class="parte-head">
+        <span class="parte-exp">${p.expediente||'—'}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${imp?`<span style="font-size:13px;font-weight:700;color:#1a3a5c">${imp}</span>`:''}
+          <span class="badge ${estado}">${estado.replace('-',' ')}</span>
+          <span class="parte-fecha">${fecha}</span>
+        </div>
+      </div>
+      <div class="parte-cliente">${p.nombre||'Sin nombre'} · ${p.poblacion||'—'}</div>
+      <div class="parte-meta">
+        <span>📞 ${p.telefono||'—'}</span>
+        <span>👤 ${p.comercial||'—'}</span>
+        <span>📅 ${p.dias||'—'} día(s)</span>
+        ${p.terreno?`<span>🏗 ${p.terreno}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.setFiltro = function(f, btn){
+  filtroActual = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLista();
+};
+window.filtrar = renderLista;
+
+window.abrirParte = function(id){
+  const p = todosPartes.find(x=>x.id===id);
+  if(!p)return;
+  parteActual = p;
+  docIdActual = id;
+  document.getElementById('modal-title').textContent = 'Parte '+p.expediente;
+
+  const mapLink = p.lat&&p.lng ? `<a href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank" style="color:#1a3a5c">Ver en mapa</a>` : '—';
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="sec">
+      <div class="sec-head">Datos del parte</div>
+      <div class="sec-body">
+        <div class="dato-grid">
+          <div class="dato"><span>Expediente</span><strong>${p.expediente||'—'}</strong></div>
+          <div class="dato"><span>Comercial</span><strong>${p.comercial||'—'}</strong></div>
+          <div class="dato"><span>Firma contrato</span><strong>${p.fechaFirma||'—'}</strong></div>
+          <div class="dato"><span>Fecha ejecución</span><strong>${p.fechaEjec||'—'}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-head">Cliente</div>
+      <div class="sec-body">
+        <div class="dato-grid">
+          <div class="dato"><span>Nombre</span><strong>${p.nombre||'—'}</strong></div>
+          <div class="dato"><span>Teléfono</span><strong>${p.telefono||'—'}</strong></div>
+          <div class="dato"><span>Correo</span><strong>${p.correo||'—'}</strong></div>
+          <div class="dato"><span>Dirección</span><strong>${p.direccion||'—'}</strong></div>
+          <div class="dato"><span>Población</span><strong>${p.poblacion||'—'}</strong></div>
+          <div class="dato"><span>Acceso obra</span><strong>${p.acceso||'—'}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-head">Instalación</div>
+      <div class="sec-body">
+        <div class="dato-grid">
+          <div class="dato"><span>Días instalación</span><strong>${p.dias||'—'}</strong></div>
+          <div class="dato"><span>Terreno</span><strong>${p.terreno||'—'}</strong></div>
+          <div class="dato"><span>Ret. juego</span><strong>${p.retJuego||'—'}</strong></div>
+          <div class="dato"><span>Ret. caucho</span><strong>${p.retCaucho||'—'}</strong></div>
+          <div class="dato"><span>Atornillado</span><strong>${p.atornillado||'—'}</strong></div>
+          <div class="dato"><span>Solera</span><strong>${p.solera||'—'}</strong></div>
+          <div class="dato"><span>SBR</span><strong>${p.sbr||'—'}</strong></div>
+          <div class="dato"><span>EPDM</span><strong>${p.epdm||'—'}</strong></div>
+          <div class="dato"><span>Color</span><strong>${p.color||'—'}</strong></div>
+          <div class="dato"><span>Grosor</span><strong>${p.grosor||'—'}</strong></div>
+          <div class="dato"><span>Dados</span><strong>${p.dados||'—'}</strong></div>
+          <div class="dato"><span>Material</span><strong>${p.material||'—'}</strong></div>
+          <div class="dato"><span>Césped</span><strong>${p.cesped||'—'}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-head">Ubicación</div>
+      <div class="sec-body">
+        <div class="dato-grid">
+          <div class="dato"><span>Dirección GPS</span><strong>${p.address||'—'}</strong></div>
+          <div class="dato"><span>Mapa</span><strong>${mapLink}</strong></div>
+        </div>
+      </div>
+    </div>
+    ${p.obs?`<div class="sec"><div class="sec-head">Observaciones</div><div class="sec-body"><div class="dato"><strong>${p.obs}</strong></div></div></div>`:''}
+
+    <div class="interno-sec">
+      <div class="interno-head">⚙️ Gestión interna — Presupuesto y estado</div>
+      <div class="interno-body">
+        <div class="form-row">
+          <div class="form-field">
+            <label>Estado del parte</label>
+            <select id="int-estado">
+              <option value="pendiente" ${p.estado==='pendiente'?'selected':''}>⏳ Pendiente</option>
+              <option value="en-proceso" ${p.estado==='en-proceso'?'selected':''}>🔄 En proceso</option>
+              <option value="presupuestado" ${p.estado==='presupuestado'?'selected':''}>📋 Presupuestado</option>
+              <option value="aprobado" ${p.estado==='aprobado'?'selected':''}>✅ Aprobado</option>
+              <option value="ejecutado" ${p.estado==='ejecutado'?'selected':''}>🏁 Ejecutado</option>
+              <option value="cancelado" ${p.estado==='cancelado'?'selected':''}>❌ Cancelado</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Responsable interno</label>
+            <input type="text" id="int-responsable" value="${p.responsable||''}" placeholder="Quién gestiona este parte">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Coste material (€)</label>
+            <input type="number" id="int-coste-mat" value="${p.costeMaterial||''}" placeholder="0.00" step="0.01">
+          </div>
+          <div class="form-field">
+            <label>Coste mano de obra (€)</label>
+            <input type="number" id="int-coste-mo" value="${p.costeManoObra||''}" placeholder="0.00" step="0.01" oninput="calcTotal()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Otros costes (€)</label>
+            <input type="number" id="int-otros" value="${p.otrosCostes||''}" placeholder="0.00" step="0.01" oninput="calcTotal()">
+          </div>
+          <div class="form-field">
+            <label>Margen (%)</label>
+            <input type="number" id="int-margen" value="${p.margen||''}" placeholder="20" step="1" oninput="calcTotal()">
+          </div>
+        </div>
+        <div class="total-row">
+          <span>TOTAL PRESUPUESTO</span>
+          <span id="int-total">${p.presupuestoTotal ? parseFloat(p.presupuestoTotal).toLocaleString('es-ES',{minimumFractionDigits:2})+'€' : '0.00€'}</span>
+        </div>
+        <div class="form-field full">
+          <label>Notas internas</label>
+          <textarea id="int-notas" rows="3" placeholder="Notas del equipo interno…">${p.notasInternas||''}</textarea>
+        </div>
+        <div class="form-field">
+          <label>Fecha prevista instalación</label>
+          <input type="date" id="int-fecha-inst" value="${p.fechaPrevistaInst||''}">
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('modal-bg').classList.add('active');
+  // Calcular total inicial
+  setTimeout(calcTotal, 50);
+};
+
+window.calcTotal = function(){
+  const mat = parseFloat(document.getElementById('int-coste-mat')?.value)||0;
+  const mo  = parseFloat(document.getElementById('int-coste-mo')?.value)||0;
+  const otros = parseFloat(document.getElementById('int-otros')?.value)||0;
+  const margen = parseFloat(document.getElementById('int-margen')?.value)||0;
+  const base = mat + mo + otros;
+  const total = base * (1 + margen/100);
+  const el = document.getElementById('int-total');
+  if(el) el.textContent = total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
+};
+
+window.cerrarModal = function(){
+  document.getElementById('modal-bg').classList.remove('active');
+};
+
+window.guardarCambios = async function(){
+  if(!docIdActual)return;
+  const mat = parseFloat(document.getElementById('int-coste-mat')?.value)||0;
+  const mo  = parseFloat(document.getElementById('int-coste-mo')?.value)||0;
+  const otros = parseFloat(document.getElementById('int-otros')?.value)||0;
+  const margen = parseFloat(document.getElementById('int-margen')?.value)||0;
+  const total = (mat+mo+otros)*(1+margen/100);
+
+  const cambios = {
+    estado: document.getElementById('int-estado').value,
+    responsable: document.getElementById('int-responsable').value,
+    costeMaterial: mat,
+    costeManoObra: mo,
+    otrosCostes: otros,
+    margen: margen,
+    presupuestoTotal: total,
+    notasInternas: document.getElementById('int-notas').value,
+    fechaPrevistaInst: document.getElementById('int-fecha-inst').value,
+    actualizadoEn: new Date().toISOString()
+  };
+
+  try {
+    await updateDoc(doc(db,"partes",docIdActual), cambios);
+    // Actualizar local
+    const idx = todosPartes.findIndex(p=>p.id===docIdActual);
+    if(idx>=0) todosPartes[idx] = {...todosPartes[idx],...cambios};
+    actualizarStats();
+    renderLista();
+    cerrarModal();
+    showToast('✓ Cambios guardados correctamente');
+  } catch(e){
+    showToast('Error al guardar: '+e.message, true);
+  }
+};
+
+function showToast(msg, error=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast'+(error?' error':'');
+  t.style.display='block';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3000);
+}
+
+cargarPartes();
+</script>
+</body>
+</html>
