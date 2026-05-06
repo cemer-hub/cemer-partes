@@ -46,14 +46,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .loading{text-align:center;padding:3rem;color:#888}
 
 /* Modal edición */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto}
 .modal-bg.active{display:flex}
-.modal{background:white;border-radius:16px;width:100%;max-width:700px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal{background:white;border-radius:16px;width:100%;max-width:700px;display:flex;flex-direction:column;overflow:visible;margin:auto}
 .modal-header{background:#1a3a5c;color:white;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .modal-header h2{font-size:17px;font-weight:600}
 .modal-close{background:none;border:none;color:white;font-size:22px;cursor:pointer;opacity:.8}
 .modal-close:hover{opacity:1}
-.modal-body{overflow-y:auto;flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
+.modal-body{overflow-y:visible;flex:1;padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem}
 .modal-footer{padding:1rem 1.5rem;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
 
 .sec{background:#f8f9fa;border-radius:10px;overflow:hidden}
@@ -351,6 +351,7 @@ window.abrirParte = function(id){
     </div>`;
 
   document.getElementById('modal-bg').classList.add('active');
+  document.body.style.overflow='hidden';
   // Calcular total inicial
   setTimeout(calcTotal, 50);
 };
@@ -368,6 +369,7 @@ window.calcTotal = function(){
 
 window.cerrarModal = function(){
   document.getElementById('modal-bg').classList.remove('active');
+  document.body.style.overflow='';
 };
 
 window.guardarCambios = async function(){

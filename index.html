@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
@@ -29,8 +29,30 @@
 
   window._guardarEnFirebase = async function(datos) {
     try {
+      // Obtener el número más alto existente para garantizar correlatividad
+      const snap = await getDocs(collection(db, "partes"));
+      let maxNum = 0;
+      snap.docs.forEach(d => {
+        const exp = d.data().expediente || '';
+        const match = exp.match(/ES-(\d+)/);
+        if(match) maxNum = Math.max(maxNum, parseInt(match[1]));
+      });
+      const nuevoNum = maxNum + 1;
+      const nuevoExp = 'ES-' + String(nuevoNum).padStart(4,'0');
+
+      // Actualizar el expediente en los datos y en la UI
+      datos.expediente = nuevoExp;
+      const expEl = document.getElementById('expediente');
+      const pillEl = document.getElementById('exp-pill');
+      if(expEl) expEl.value = nuevoExp;
+      if(pillEl) pillEl.textContent = nuevoExp;
+
+      // Guardar también en localStorage para sincronizar el dispositivo
+      localStorage.setItem('cemerplay_counter', String(nuevoNum));
+
       const docRef = await addDoc(collection(db, "partes"), {
         ...datos,
+        expediente: nuevoExp,
         estado: "pendiente",
         creadoEn: serverTimestamp()
       });
