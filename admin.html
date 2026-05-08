@@ -165,7 +165,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="modal-body" id="modal-body"></div>
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn btn-pdf-modal" onclick="exportarPDFParte()">📄 Exportar PDF</button>
+      <button class="btn btn-pdf-modal" style="background:#217346" onclick="exportarExcelParte(docIdActual)">📊 Excel</button>
+      <button class="btn btn-pdf-modal" onclick="exportarPDFParte()">📄 PDF</button>
       <button class="btn btn-save" onclick="guardarCambios()">Guardar cambios</button>
     </div>
   </div>
@@ -253,6 +254,7 @@ function renderLista(){
           <span class="badge ${estado}">${estado.replace('-',' ')}</span>
           <span class="parte-fecha">${fecha}</span>
           <button class="btn-pdf-card" onclick="abrirYExportarPDF('${p.id}')">PDF</button>
+          <button class="btn-pdf-card" style="background:#e8f5e0;border-color:#a8d5a8;color:#1a5c1a" onclick="exportarExcelParte('${p.id}')">XLS</button>
           <button class="btn-del" onclick="pedirBorrar('${p.id}')">🗑</button>
         </div>
       </div>
@@ -284,12 +286,12 @@ const SECCIONES=[
   ]},
   {id:'sec-inst',titulo:'Instalación',campos:[
     {id:'dias',label:'Área del juego (m²)'},{id:'terreno',label:'Terreno'},
+    {id:'acceso',label:'Acceso obra'},
     {id:'retJuego',label:'Ret. juego'},{id:'retCaucho',label:'Ret. caucho'},
     {id:'atornillado',label:'Atornillado'},{id:'solera',label:'Solera'},
     {id:'sbr',label:'SBR'},{id:'epdm',label:'EPDM'},
     {id:'color',label:'Color'},{id:'grosor',label:'Grosor'},
-    {id:'dados',label:'Dados'},{id:'material',label:'Material'},
-    {id:'cesped',label:'Césped'}
+    {id:'material',label:'Material'},{id:'cesped',label:'Césped'}
   ]},
   {id:'sec-alq',titulo:'Alquiler',campos:[
     {id:'vallas',label:'Vallas'},{id:'diaVallas',label:'Día colocación',type:'date'},
@@ -520,11 +522,11 @@ function generarPDFDatos(p){
   f2('Población',p.poblacion,'Acceso obra',p.acceso);y+=3;
   sec('Instalación');
   f2('Área del juego (m²)',p.dias,'Terreno',p.terreno);
-  f2('Ret. juego',p.retJuego,'Ret. caucho',p.retCaucho);
-  f2('Atornillado',p.atornillado,'Solera',p.solera);
-  f2('SBR',p.sbr,'EPDM',p.epdm);
-  f2('Color',p.color,'Grosor',p.grosor);
-  f2('Dados',p.dados,'Material',p.material);
+  f2('Acceso obra',p.acceso,'Ret. juego',p.retJuego);
+  f2('Ret. caucho',p.retCaucho,'Atornillado',p.atornillado);
+  f2('Solera',p.solera,'SBR',p.sbr);
+  f2('EPDM',p.epdm,'Color',p.color);
+  f2('Grosor',p.grosor,'Material',p.material);
   f1('Césped',p.cesped);y+=3;
   sec('Alquiler material obra');
   f2('Vallas',p.vallas,'Día colocación',p.diaVallas);
@@ -587,8 +589,59 @@ window.abrirYExportarPDF=function(id){
   showToast('PDF de '+p.expediente+' generado');
 };
 
-// Exportar Excel
-window.exportarExcel=function(){
+// Exportar Excel de UN parte individual
+window.exportarExcelParte=function(id){
+  const p=todosPartes.find(x=>x.id===id); if(!p)return;
+  const datos=[{
+    'Expediente':p.expediente||'',
+    'Comercial':p.comercial||'',
+    'Estado':p.estado||'',
+    'Fecha firma':p.fechaFirma||'',
+    'Fecha ejecución':p.fechaEjec||'',
+    'Cliente':p.nombre||'',
+    'Teléfono':p.telefono||'',
+    'Correo':p.correo||'',
+    'Dirección':p.direccion||'',
+    'Población':p.poblacion||'',
+    'Área juego (m²)':p.dias||'',
+    'Terreno':p.terreno||'',
+    'Acceso obra':p.acceso||'',
+    'Ret. juego':p.retJuego||'',
+    'Ret. caucho':p.retCaucho||'',
+    'Atornillado':p.atornillado||'',
+    'Solera':p.solera||'',
+    'SBR':p.sbr||'','EPDM':p.epdm||'',
+    'Color':p.color||'','Grosor':p.grosor||'',
+    'Material':p.material||'','Césped':p.cesped||'',
+    'Vallas':p.vallas||'',
+    'Día colocación vallas':p.diaVallas||'',
+    'Retirar vallas':p.retVallas||'',
+    'Alquiler máquinas':p.maquinas||'',
+    'Transporte':p.transporte||'',
+    'Contenedor obra':p.contObra||'',
+    'Contenedor reciclado':p.contRec||'',
+    'Observaciones':p.obs||'',
+    'Dirección GPS':p.address||'',
+    'Responsable':p.responsable||'',
+    'Días producción':p.diasProduccion||'',
+    'Días instalación':p.diasInstalacion||'',
+    'Fecha prevista inst.':p.fechaPrevistaInst||'',
+    'Coste material (€)':p.costeMaterial||0,
+    'Coste M.O. (€)':p.costeManoObra||0,
+    'Otros costes (€)':p.otrosCostes||0,
+    'Margen (%)':p.margen||0,
+    'TOTAL PRESUPUESTO (€)':p.presupuestoTotal||0,
+    'Notas internas':p.notasInternas||'',
+  }];
+  const ws=XLSX.utils.json_to_sheet(datos);
+  ws['!cols']=Object.keys(datos[0]).map(k=>({wch:Math.max(k.length+2,16)}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,'Parte',ws);
+  XLSX.writeFile(wb,'Parte_'+p.expediente+'.xlsx');
+  showToast('Excel de '+p.expediente+' exportado');
+};
+
+// Exportar Excel TODOS los partes
   const datos=todosPartes.map(p=>({
     'Expediente':p.expediente||'',
     'Comercial':p.comercial||'',
