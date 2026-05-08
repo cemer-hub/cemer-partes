@@ -607,29 +607,95 @@ async function generarYEnviar(){
 
   setProgress(90,'Enviando correo…');
 
-  // HTML del correo
+  // Fotos en base64 reducidas para el correo
+  const fotosHtml = await Promise.all(
+    photos.map(async (foto, i) => {
+      if(!foto) return '';
+      // Redimensionar foto para que no sea demasiado grande en el correo
+      const canvas = document.createElement('canvas');
+      const img = new Image();
+      await new Promise(r=>{img.onload=r;img.src=foto;});
+      const maxW = 400, maxH = 300;
+      const ratio = Math.min(maxW/img.width, maxH/img.height, 1);
+      canvas.width = img.width * ratio;
+      canvas.height = img.height * ratio;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const small = canvas.toDataURL('image/jpeg', 0.7);
+      return `<div style="margin:8px 0;text-align:center">
+        <p style="font-size:11px;color:#888;margin:0 0 4px">Fotografía ${i+1}</p>
+        <img src="${small}" style="max-width:100%;border-radius:6px;border:1px solid #ddd">
+      </div>`;
+    })
+  );
+  const fotosBloque = fotosHtml.filter(Boolean).join('');
+
   const adminUrl = 'https://cemer-partes.vercel.app/admin.html';
-  const htmlCorreo=`<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-  <div style="background:#2D6A2D;padding:16px 20px;border-radius:8px 8px 0 0">
-    <h2 style="color:white;margin:0;font-size:18px">Parte de Trabajo — ${datos.expediente}</h2>
-    <p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:13px">Cemerplay · ${new Date().toLocaleDateString('es-ES')}</p>
+  const tr = (label, valor, alt=false) =>
+    `<tr${alt?' style="background:#fafafa"':''}><td style="padding:5px 8px;color:#666;width:42%">${label}</td><td style="padding:5px 8px;font-weight:600;color:#111">${valor||'—'}</td></tr>`;
+  const sec = (titulo) =>
+    `<tr><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase;background:#eaf5ea;letter-spacing:.5px">${titulo}</td></tr>`;
+
+  const htmlCorreo=`<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222">
+  <div style="background:#2D6A2D;padding:18px 22px;border-radius:10px 10px 0 0">
+    <h2 style="color:white;margin:0;font-size:20px">Parte de Trabajo — ${datos.expediente}</h2>
+    <p style="color:rgba(255,255,255,.8);margin:5px 0 0;font-size:13px">Cemerplay · ${new Date().toLocaleDateString('es-ES')} · Comercial: ${datos.comercial||'—'}</p>
   </div>
-  <div style="border:1px solid #ddd;border-top:none;padding:16px 20px;border-radius:0 0 8px 8px">
-    <p style="color:#555;font-size:13px;margin:0 0 12px">Nuevo parte recibido. El PDF completo se ha descargado en el dispositivo del comercial.</p>
-    <a href="${adminUrl}" style="display:inline-block;background:#2D6A2D;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:16px">→ Abrir panel interno para editar</a>
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase">CLIENTE</td></tr>
-      <tr><td style="padding:5px 8px;color:#666;width:40%">Nombre</td><td style="padding:5px 8px;font-weight:600">${datos.nombre||'—'}</td></tr>
-      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Teléfono</td><td style="padding:5px 8px;font-weight:600">${datos.telefono||'—'}</td></tr>
-      <tr><td style="padding:5px 8px;color:#666">Dirección</td><td style="padding:5px 8px">${datos.direccion||'—'}, ${datos.poblacion||''}</td></tr>
-      <tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase">INSTALACIÓN</td></tr>
-      <tr><td style="padding:5px 8px;color:#666">Área del juego</td><td style="padding:5px 8px;font-weight:600">${datos.dias||'—'} m²</td></tr>
-      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Terreno</td><td style="padding:5px 8px">${datos.terreno||'—'}</td></tr>
-      <tr><td style="padding:5px 8px;color:#666">Acceso obra</td><td style="padding:5px 8px">${datos.acceso||'—'}</td></tr>
-      <tr style="background:#fafafa"><td style="padding:5px 8px;color:#666">Comercial</td><td style="padding:5px 8px;font-weight:600">${datos.comercial||'—'}</td></tr>
-      ${datos.lat&&datos.lng?`<tr style="background:#eaf5ea"><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase">UBICACIÓN</td></tr><tr><td style="padding:5px 8px;color:#666">Google Maps</td><td style="padding:5px 8px"><a href="https://maps.google.com/?q=${datos.lat},${datos.lng}" style="color:#2D6A2D">Ver en mapa</a></td></tr>`:''}
+  <div style="border:1px solid #ddd;border-top:none;padding:18px 22px;border-radius:0 0 10px 10px">
+
+    <a href="${adminUrl}" style="display:inline-block;background:#2D6A2D;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:18px">→ Abrir panel interno para editar</a>
+
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+      ${sec('Identificación')}
+      ${tr('N Expediente', datos.expediente)}
+      ${tr('Comercial', datos.comercial, true)}
+      ${tr('Fecha firma contrato', datos.fechaFirma)}
+      ${tr('Fecha de ejecución', datos.fechaEjec, true)}
+
+      ${sec('Datos del cliente')}
+      ${tr('Nombre', datos.nombre)}
+      ${tr('Teléfono', datos.telefono, true)}
+      ${tr('Correo', datos.correo)}
+      ${tr('Dirección', datos.direccion, true)}
+      ${tr('Población', datos.poblacion)}
+
+      ${sec('Datos de la instalación')}
+      ${tr('Área del juego', datos.dias ? datos.dias+' m²' : '—')}
+      ${tr('Estado del terreno', datos.terreno, true)}
+      ${tr('Acceso obra', datos.acceso)}
+      ${tr('Ret. juego existente', datos.retJuego, true)}
+      ${tr('Ret. caucho existente', datos.retCaucho)}
+      ${tr('Atornillado', datos.atornillado, true)}
+      ${tr('Solera', datos.solera)}
+      ${tr('SBR (kg/m²)', datos.sbr, true)}
+      ${tr('EPDM (kg/m²)', datos.epdm)}
+      ${tr('Color', datos.color, true)}
+      ${tr('Grosor (cm)', datos.grosor)}
+      ${tr('Comprar material', datos.material, true)}
+      ${tr('Césped', datos.cesped)}
+
+      ${sec('Alquiler material obra')}
+      ${tr('Vallas obra', datos.vallas)}
+      ${tr('Día colocación', datos.diaVallas, true)}
+      ${tr('Retirar vallas', datos.retVallas)}
+      ${tr('Alquiler máquinas', datos.maquinas, true)}
+      ${tr('Transporte', datos.transporte)}
+      ${tr('Contenedor obra', datos.contObra, true)}
+      ${tr('Contenedor reciclado', datos.contRec)}
+
+      ${datos.lat&&datos.lng ? `${sec('Ubicación GPS')}${tr('Dirección', datos.address)}
+      <tr><td style="padding:5px 8px;color:#666">Google Maps</td><td style="padding:5px 8px"><a href="https://maps.google.com/?q=${datos.lat},${datos.lng}" style="color:#2D6A2D;font-weight:600">Ver en mapa →</a></td></tr>` : ''}
+
+      ${datos.obs ? `${sec('Observaciones')}<tr><td colspan="2" style="padding:8px">${datos.obs}</td></tr>` : ''}
     </table>
-    <p style="color:#999;font-size:11px;margin:16px 0 0;border-top:1px solid #eee;padding-top:12px">Haz clic en el botón verde para abrir el panel interno y completar el presupuesto y estado del parte.</p>
+
+    ${fotosBloque ? `<div style="border-top:1px solid #eee;padding-top:14px;margin-top:4px">
+      <p style="font-size:12px;font-weight:700;color:#2D6A2D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Fotografías (${fotosHtml.filter(Boolean).length})</p>
+      ${fotosBloque}
+    </div>` : ''}
+
+    <p style="color:#aaa;font-size:11px;margin-top:16px;border-top:1px solid #eee;padding-top:12px">
+      Parte generado automáticamente · Cemerplay
+    </p>
   </div>
 </div>`;
 
