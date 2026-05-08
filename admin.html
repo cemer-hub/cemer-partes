@@ -642,6 +642,7 @@ window.exportarExcelParte=function(id){
 };
 
 // Exportar Excel TODOS los partes
+window.exportarExcel=function(){
   const datos=todosPartes.map(p=>({
     'Expediente':p.expediente||'',
     'Comercial':p.comercial||'',
