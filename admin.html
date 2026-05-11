@@ -335,6 +335,17 @@ function renderModalBody(p, secEditing){
       </div></div>
     </div>`+
     (p.obs?`<div class="sec"><div class="sec-head">Observaciones</div><div class="sec-body"><div class="dato"><strong>${p.obs}</strong></div></div></div>`:'')+
+    (p.fotos&&p.fotos.length?`<div class="sec">
+      <div class="sec-head">Fotografías (${p.fotos.length})</div>
+      <div class="sec-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+          ${p.fotos.map((f,i)=>`<div style="text-align:center">
+            <img src="${f}" style="width:100%;border-radius:8px;border:1px solid #ddd;cursor:pointer" onclick="window.open('${f}','_blank')" title="Ver foto ${i+1} a tamaño completo">
+            <p style="font-size:11px;color:#888;margin-top:4px">Foto ${i+1}</p>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`:'')+
     `<div class="interno-sec">
       <div class="interno-head">⚙️ Gestión interna — Presupuesto y estado</div>
       <div class="interno-body">
@@ -541,6 +552,25 @@ function generarPDFDatos(p){
     const h=Math.max(10,lines.length*5+4);
     doc.rect(M,y,CW,h,'F');doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
     doc.text(lines,M+3,y+5);y+=h+3;
+  }
+
+  // Fotos guardadas en Firebase
+  if(p.fotos&&p.fotos.length>0){
+    doc.addPage();y=M;
+    sec('Fotografías ('+p.fotos.length+')');y+=3;
+    const fotoW=(CW-8)/2, fotoH=70;
+    for(let i=0;i<p.fotos.length;i++){
+      const col=i%2;
+      const fx=M+col*(fotoW+8);
+      if(col===0&&i>0)y+=fotoH+8;
+      if(y+fotoH>285){doc.addPage();y=M;}
+      try{
+        doc.addImage(p.fotos[i],'JPEG',fx,y,fotoW,fotoH,'','MEDIUM');
+        doc.setDrawColor(...VERDE);doc.rect(fx,y,fotoW,fotoH);
+        doc.setFontSize(8);doc.setTextColor(100,100,100);
+        doc.text('Foto '+(i+1),fx+2,y+fotoH-2);
+      }catch(e){}
+    }
   }
 
   // Gestión interna
