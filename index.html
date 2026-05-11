@@ -13,7 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
@@ -29,7 +29,7 @@
 
   window._guardarEnFirebase = async function(datos) {
     try {
-      // Obtener el número más alto existente para garantizar correlatividad
+      // Obtener número correlativo
       const snap = await getDocs(collection(db, "partes"));
       let maxNum = 0;
       snap.docs.forEach(d => {
@@ -40,22 +40,35 @@
       const nuevoNum = maxNum + 1;
       const nuevoExp = 'ES-' + String(nuevoNum).padStart(4,'0');
 
-      // Actualizar el expediente en los datos y en la UI
       datos.expediente = nuevoExp;
       const expEl = document.getElementById('expediente');
       const pillEl = document.getElementById('exp-pill');
       if(expEl) expEl.value = nuevoExp;
       if(pillEl) pillEl.textContent = nuevoExp;
-
-      // Guardar también en localStorage para sincronizar el dispositivo
       localStorage.setItem('cemerplay_counter', String(nuevoNum));
 
+      // Separar fotos del resto de datos
+      const { fotos, ...datosSinFotos } = datos;
+
+      // Guardar documento principal SIN fotos
       const docRef = await addDoc(collection(db, "partes"), {
-        ...datos,
+        ...datosSinFotos,
         expediente: nuevoExp,
         estado: "pendiente",
+        numFotos: fotos ? fotos.length : 0,
         creadoEn: serverTimestamp()
       });
+
+      // Guardar cada foto en subcolección separada
+      if(fotos && fotos.length > 0){
+        for(let i = 0; i < fotos.length; i++){
+          await setDoc(doc(db, "partes", docRef.id, "fotos", String(i)), {
+            index: i,
+            data: fotos[i]
+          });
+        }
+      }
+
       return docRef.id;
     } catch(e) {
       console.error("Error guardando en Firebase:", e);
@@ -597,42 +610,52 @@ async function generarYEnviar(){
 
   setProgress(75,'Comprimiendo fotografías…');
 
-  // Comprimir fotos para guardar en Firebase (max 300px, calidad 0.6)
-  async function comprimirFoto(base64, maxW=600, maxH=450, calidad=0.65){
+  // Comprimir fotos agresivamente para Firestore (max 400x300, calidad 0.4)
+  async function comprimirFoto(base64, maxW=400, maxH=300, calidad=0.4){
     return new Promise(resolve=>{
       const img=new Image();
       img.onload=()=>{
         const ratio=Math.min(maxW/img.width, maxH/img.height, 1);
         const c=document.createElement('canvas');
-        c.width=img.width*ratio; c.height=img.height*ratio;
+        c.width=Math.round(img.width*ratio);
+        c.height=Math.round(img.height*ratio);
         c.getContext('2d').drawImage(img,0,0,c.width,c.height);
         resolve(c.toDataURL('image/jpeg', calidad));
       };
+      img.onerror=()=>resolve(null);
       img.src=base64;
     });
   }
 
-  const fotosComprimidas = await Promise.all(
+  // Comprimir fotos para el correo (un poco más de calidad)
+  async function comprimirFotoCorreo(base64){
+    return comprimirFoto(base64, 500, 375, 0.6);
+  }
+
+  const fotosParaCorreo = await Promise.all(
+    photos.map(f => f ? comprimirFotoCorreo(f) : Promise.resolve(null))
+  );
+  const fotosParaFirebase = await Promise.all(
     photos.map(f => f ? comprimirFoto(f) : Promise.resolve(null))
   );
 
   setProgress(80,'Guardando en la nube…');
 
-  // Guardar en Firebase incluyendo fotos comprimidas
+  // Guardar en Firebase: datos en documento principal, fotos en subcolección
   let firebaseId = null;
   try {
     if(window._guardarEnFirebase){
       firebaseId = await window._guardarEnFirebase({
         ...datos,
-        fotos: fotosComprimidas.filter(Boolean)
+        fotos: fotosParaFirebase.filter(Boolean)
       });
     }
   } catch(e){ console.warn('Firebase no disponible:', e); }
 
   setProgress(90,'Enviando correo…');
 
-  // Fotos en base64 para el correo (reutilizamos las comprimidas)
-  const fotosHtml = fotosComprimidas.map((foto, i) => {
+  // Fotos para el correo
+  const fotosHtml = fotosParaCorreo.map((foto, i) => {
     if(!foto) return '';
     return `<div style="margin:8px 0;text-align:center">
       <p style="font-size:11px;color:#888;margin:0 0 4px">Fotografía ${i+1}</p>

@@ -188,7 +188,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, orderBy, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, orderBy, query, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
@@ -314,13 +314,24 @@ function renderSeccion(sec, p, editando){
   </div>`;
 }
 
-window.abrirParte=function(id){
+window.abrirParte=async function(id){
   const p=todosPartes.find(x=>x.id===id); if(!p)return;
   parteActual=p; docIdActual=id;
   document.getElementById('modal-title').textContent='Parte '+p.expediente;
   renderModalBody(p, false);
   document.getElementById('modal-bg').classList.add('active');
   document.body.style.overflow='hidden';
+
+  // Cargar fotos desde subcolección si existen
+  if(p.numFotos > 0 && (!p.fotos || p.fotos.length === 0)){
+    try{
+      const fotosSnap = await getDocs(collection(db,"partes",id,"fotos"));
+      const fotos = [];
+      fotosSnap.docs.forEach(d => fotos[d.data().index] = d.data().data);
+      parteActual = {...p, fotos: fotos.filter(Boolean)};
+      renderModalBody(parteActual, false);
+    }catch(e){ console.warn('No se pudieron cargar fotos:', e); }
+  }
 };
 
 function renderModalBody(p, secEditing){
