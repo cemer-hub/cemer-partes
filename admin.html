@@ -17,6 +17,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sync-badge{font-size:12px;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:20px}
 .btn-export-xl{background:#217346;color:white;border:none;padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600}
 .btn-export-xl:hover{background:#1a5c38}
+.btn-holded{background:#FF5B35;color:white;border:none;padding:7px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600}
+.btn-holded:hover{background:#e04a26}
+.holded-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;padding:1rem}
+.holded-modal.active{display:flex}
+.holded-box{background:white;border-radius:16px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.holded-header{background:#FF5B35;color:white;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:16px 16px 0 0}
+.holded-header h3{font-size:16px;font-weight:600}
+.holded-body{padding:1.25rem;overflow-y:auto;flex:1}
+.holded-search{display:flex;gap:8px;margin-bottom:14px}
+.holded-search input{flex:1;padding:9px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px}
+.holded-search input:focus{outline:none;border-color:#FF5B35}
+.holded-search button{padding:9px 16px;background:#FF5B35;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}
+.presup-item{border:1px solid #eee;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.presup-item:hover{border-color:#FF5B35;background:#fff5f3}
+.presup-item.selected{border-color:#FF5B35;background:#fff5f3;box-shadow:0 0 0 2px rgba(255,91,53,.2)}
+.presup-num{font-size:13px;font-weight:700;color:#1a3a5c}
+.presup-cliente{font-size:14px;font-weight:600;color:#333;margin:2px 0}
+.presup-meta{font-size:12px;color:#888;display:flex;gap:12px;flex-wrap:wrap}
+.presup-importe{font-size:15px;font-weight:700;color:#FF5B35}
+.holded-footer{padding:1rem 1.5rem;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+.btn-importar{padding:10px 22px;border:none;border-radius:8px;background:#FF5B35;color:white;font-size:14px;cursor:pointer;font-weight:700}
+.btn-importar:disabled{background:#ccc;cursor:not-allowed}
+.holded-loading{text-align:center;padding:2rem;color:#888}
+.holded-err{background:#fee;color:#c0392b;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px}
 .container{max-width:1100px;margin:0 auto;padding:1.5rem}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
 .stat{background:white;border-radius:12px;padding:1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,.08)}
@@ -127,6 +151,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <h1>Panel Interno · Cemerplay</h1>
   <div class="header-actions">
     <span class="sync-badge" id="sync-badge">Cargando…</span>
+    <button class="btn-holded" onclick="abrirHolded()">🔗 Importar de Holded</button>
     <button class="btn-export-xl" onclick="exportarExcel()">📊 Exportar Excel</button>
   </div>
 </div>
@@ -172,6 +197,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- Modal Holded -->
+<div class="holded-modal" id="holded-modal">
+  <div class="holded-box">
+    <div class="holded-header">
+      <h3>🔗 Importar presupuesto aceptado de Holded</h3>
+      <button class="modal-close" onclick="cerrarHolded()" style="color:white">×</button>
+    </div>
+    <div class="holded-body">
+      <div id="holded-err" class="holded-err" style="display:none"></div>
+      <div class="holded-search">
+        <input type="text" id="holded-buscar" placeholder="Buscar por cliente o número…" oninput="filtrarPresupuestos()">
+        <button onclick="cargarPresupuestosHolded()">🔄 Actualizar</button>
+      </div>
+      <div id="holded-lista"><div class="holded-loading">Cargando presupuestos de Holded…</div></div>
+    </div>
+    <div class="holded-footer">
+      <button class="btn btn-cancel" onclick="cerrarHolded()">Cancelar</button>
+      <button class="btn-importar" id="btn-importar" onclick="importarSeleccionado()" disabled>Importar como parte →</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm borrar -->
 <div class="confirm-bg" id="confirm-bg">
   <div class="confirm-box">
@@ -188,7 +235,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, orderBy, query, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, addDoc, orderBy, query, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
@@ -758,6 +805,152 @@ function showToast(msg,error=false){
   t.textContent=msg;t.className='toast'+(error?' error':'');t.style.display='block';
   clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000);
 }
+
+// ===== INTEGRACIÓN HOLDED =====
+const HOLDED_API_KEY = '607fb6450063dd2e03c879f70912bb46';
+let presupuestosHolded = [];
+let presupuestoSeleccionado = null;
+
+window.abrirHolded = function(){
+  document.getElementById('holded-modal').classList.add('active');
+  document.body.style.overflow='hidden';
+  cargarPresupuestosHolded();
+};
+window.cerrarHolded = function(){
+  document.getElementById('holded-modal').classList.remove('active');
+  document.body.style.overflow='';
+  presupuestoSeleccionado=null;
+  document.getElementById('btn-importar').disabled=true;
+};
+
+window.cargarPresupuestosHolded = async function(){
+  const lista=document.getElementById('holded-lista');
+  const err=document.getElementById('holded-err');
+  err.style.display='none';
+  lista.innerHTML='<div class="holded-loading">Cargando presupuestos…</div>';
+  presupuestosHolded=[];
+  presupuestoSeleccionado=null;
+  document.getElementById('btn-importar').disabled=true;
+
+  try{
+    // Usamos un proxy CORS gratuito para llamar a Holded desde el navegador
+    const url = 'https://api.holded.com/api/invoicing/v1/documents/estimate';
+    const resp = await fetch('https://corsproxy.io/?'+encodeURIComponent(url), {
+      headers: { 'key': HOLDED_API_KEY }
+    });
+    if(!resp.ok) throw new Error('Error '+resp.status);
+    const data = await resp.json();
+
+    // Filtrar solo los aceptados (status: accepted o 3)
+    presupuestosHolded = (Array.isArray(data) ? data : (data.list||data.data||[]));
+    // Ordenar por fecha desc
+    presupuestosHolded.sort((a,b)=>(b.date||0)-(a.date||0));
+    renderPresupuestos(presupuestosHolded);
+  }catch(e){
+    err.textContent='No se pudo conectar con Holded. Comprueba la API key o inténtalo de nuevo.';
+    err.style.display='block';
+    lista.innerHTML='';
+    console.error('Holded error:',e);
+  }
+};
+
+function renderPresupuestos(lista){
+  const el=document.getElementById('holded-lista');
+  if(!lista.length){el.innerHTML='<div class="holded-loading">No se encontraron presupuestos.</div>';return;}
+  el.innerHTML=lista.map(p=>{
+    const fecha=p.date?new Date(p.date*1000).toLocaleDateString('es-ES'):'—';
+    const estado=p.status===3||p.status==='accepted'?'✅ Aceptado':p.status===1?'📋 Enviado':'📝 Borrador';
+    const importe=p.total!=null?parseFloat(p.total).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—';
+    const cliente=p.contactName||p.contact?.name||'Sin nombre';
+    const num=p.docNumber||p.number||p.id?.slice(-6)||'—';
+    return `<div class="presup-item" id="pi-${p.id}" onclick="seleccionarPresupuesto('${p.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div>
+          <div class="presup-num">Nº ${num}</div>
+          <div class="presup-cliente">${cliente}</div>
+          <div class="presup-meta">
+            <span>📅 ${fecha}</span>
+            <span>${estado}</span>
+          </div>
+        </div>
+        <div class="presup-importe">${importe}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.filtrarPresupuestos = function(){
+  const q=document.getElementById('holded-buscar').value.toLowerCase();
+  if(!q){renderPresupuestos(presupuestosHolded);return;}
+  const filtrados=presupuestosHolded.filter(p=>{
+    const c=(p.contactName||p.contact?.name||'').toLowerCase();
+    const n=String(p.docNumber||p.number||'').toLowerCase();
+    return c.includes(q)||n.includes(q);
+  });
+  renderPresupuestos(filtrados);
+};
+
+window.seleccionarPresupuesto = function(id){
+  document.querySelectorAll('.presup-item').forEach(el=>el.classList.remove('selected'));
+  const el=document.getElementById('pi-'+id);
+  if(el) el.classList.add('selected');
+  presupuestoSeleccionado=presupuestosHolded.find(p=>p.id===id);
+  document.getElementById('btn-importar').disabled=!presupuestoSeleccionado;
+};
+
+window.importarSeleccionado = async function(){
+  if(!presupuestoSeleccionado) return;
+  const p=presupuestoSeleccionado;
+
+  // Extraer datos del presupuesto de Holded
+  const cliente=p.contactName||p.contact?.name||'';
+  const total=p.total||0;
+  const fecha=p.date?new Date(p.date*1000).toISOString().slice(0,10):'';
+  const num=p.docNumber||p.number||p.id;
+
+  // Extraer descripción/observaciones de las líneas
+  const lineas=(p.items||p.products||p.lines||[]).map(l=>
+    `${l.name||l.desc||''}: ${l.units||l.qty||1} ud × ${l.price||l.subtotal||0}€`
+  ).join('\n');
+
+  // Calcular número de expediente correlativo
+  const snap2=await getDocs(collection(db,'partes'));
+  let maxNum2=0;
+  snap2.docs.forEach(d=>{
+    const exp=d.data().expediente||'';
+    const m=exp.match(/ES-(\d+)/);
+    if(m) maxNum2=Math.max(maxNum2,parseInt(m[1]));
+  });
+  const nuevoNum2=maxNum2+1;
+  const nuevoExp2='ES-'+String(nuevoNum2).padStart(4,'0');
+
+  // Crear parte en Firebase
+  try{
+    await addDoc(collection(db,'partes'),{
+      expediente: nuevoExp2,
+      nombre: cliente,
+      telefono: p.contact?.phone||'',
+      correo: p.contact?.email||'',
+      direccion: p.contact?.address||'',
+      poblacion: p.contact?.city||'',
+      obs: `Importado de Holded — Presupuesto Nº${num}\n\n${lineas}`,
+      precioVenta: total,
+      presupuestoTotal: total,
+      estado: 'presupuestado',
+      creadoEn: serverTimestamp(),
+      origenHolded: true,
+      holdedId: p.id,
+      holdedNum: String(num),
+      numFotos: 0,
+    });
+    localStorage.setItem('cemerplay_counter', String(nuevoNum2));
+    cerrarHolded();
+    await cargarPartes();
+    showToast('✅ Presupuesto '+num+' importado como '+nuevoExp2);
+  }catch(e){
+    showToast('Error al importar: '+e.message, true);
+  }
+};
 
 cargarPartes();
 </script>
