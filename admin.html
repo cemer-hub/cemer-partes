@@ -387,24 +387,30 @@ function renderModalBody(p, secEditing){
           </div>
         </div>
         <div class="form-row">
+          <div class="form-field"><label>Precio de venta (€)</label>
+            <input type="number" id="int-precio-venta" value="${p.precioVenta||''}" placeholder="0.00" step="0.01" oninput="calcTotal()">
+          </div>
           <div class="form-field"><label>Coste material (€)</label>
             <input type="number" id="int-coste-mat" value="${p.costeMaterial||''}" placeholder="0.00" step="0.01" oninput="calcTotal()">
           </div>
+        </div>
+        <div class="form-row">
           <div class="form-field"><label>Coste mano de obra (€)</label>
             <input type="number" id="int-coste-mo" value="${p.costeManoObra||''}" placeholder="0.00" step="0.01" oninput="calcTotal()">
           </div>
-        </div>
-        <div class="form-row">
           <div class="form-field"><label>Otros costes (€)</label>
             <input type="number" id="int-otros" value="${p.otrosCostes||''}" placeholder="0.00" step="0.01" oninput="calcTotal()">
           </div>
-          <div class="form-field"><label>Margen (%)</label>
-            <input type="number" id="int-margen" value="${p.margen||''}" placeholder="20" step="1" oninput="calcTotal()">
-          </div>
         </div>
-        <div class="total-row">
-          <span>TOTAL PRESUPUESTO</span>
-          <span id="int-total">${p.presupuestoTotal?parseFloat(p.presupuestoTotal).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€'}</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+          <div style="background:#1a3a5c;border-radius:8px;padding:10px 14px;color:white">
+            <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">% Margen beneficio</div>
+            <div id="int-margen" style="font-size:22px;font-weight:700">—</div>
+          </div>
+          <div style="background:#2D6A2D;border-radius:8px;padding:10px 14px;color:white">
+            <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Beneficio (€)</div>
+            <div id="int-beneficio" style="font-size:22px;font-weight:700">—</div>
+          </div>
         </div>
         <div class="form-field full"><label>Notas internas</label>
           <textarea id="int-notas" rows="3" placeholder="Notas del equipo interno…">${p.notasInternas||''}</textarea>
@@ -440,13 +446,21 @@ window.toggleSecEdit=async function(secId, parteId){
 };
 
 window.calcTotal=function(){
+  const venta=parseFloat(document.getElementById('int-precio-venta')?.value)||0;
   const mat=parseFloat(document.getElementById('int-coste-mat')?.value)||0;
   const mo=parseFloat(document.getElementById('int-coste-mo')?.value)||0;
   const otros=parseFloat(document.getElementById('int-otros')?.value)||0;
-  const margen=parseFloat(document.getElementById('int-margen')?.value)||0;
-  const total=(mat+mo+otros)*(1+margen/100);
-  const el=document.getElementById('int-total');
-  if(el)el.textContent=total.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
+  const costeTotal=mat+mo+otros;
+  const beneficio=venta-costeTotal;
+  const margenPct=venta>0 ? (beneficio/venta*100) : 0;
+  const margenEl=document.getElementById('int-margen');
+  const beneficioEl=document.getElementById('int-beneficio');
+  if(margenEl) margenEl.textContent=margenPct.toFixed(1)+'%';
+  if(beneficioEl) beneficioEl.textContent=beneficio.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
+  if(margenEl){
+    const color=margenPct>=20?'#2D6A2D':margenPct>=10?'#e67e22':'#c0392b';
+    margenEl.closest('div[style]').style.background=color;
+  }
 };
 
 window.cerrarModal=function(){
@@ -456,19 +470,25 @@ window.cerrarModal=function(){
 
 window.guardarCambios=async function(){
   if(!docIdActual)return;
+  const venta=parseFloat(document.getElementById('int-precio-venta')?.value)||0;
   const mat=parseFloat(document.getElementById('int-coste-mat')?.value)||0;
   const mo=parseFloat(document.getElementById('int-coste-mo')?.value)||0;
   const otros=parseFloat(document.getElementById('int-otros')?.value)||0;
-  const margen=parseFloat(document.getElementById('int-margen')?.value)||0;
-  const total=(mat+mo+otros)*(1+margen/100);
+  const costeTotal=mat+mo+otros;
+  const beneficio=venta-costeTotal;
+  const margenPct=venta>0?(beneficio/venta*100):0;
   const cambios={
     estado:document.getElementById('int-estado').value,
     responsable:document.getElementById('int-responsable').value,
     diasProduccion:document.getElementById('int-dias-prod').value,
     diasInstalacion:document.getElementById('int-dias-inst').value,
     fechaPrevistaInst:document.getElementById('int-fecha-inst').value,
-    costeMaterial:mat,costeManoObra:mo,otrosCostes:otros,margen,
-    presupuestoTotal:total,
+    precioVenta:venta,
+    costeMaterial:mat, costeManoObra:mo, otrosCostes:otros,
+    costeTotal:costeTotal,
+    beneficio:beneficio,
+    margen:parseFloat(margenPct.toFixed(2)),
+    presupuestoTotal:venta,
     notasInternas:document.getElementById('int-notas').value,
     actualizadoEn:new Date().toISOString()
   };
@@ -592,13 +612,15 @@ function generarPDFDatos(p){
     doc.text('GESTIÓN INTERNA',M,8.5);doc.setTextColor(0,0,0);y=18;
     f2('Estado',p.estado,'Responsable',p.responsable);
     f2('Días producción',String(p.diasProduccion||'—'),'Días instalación',String(p.diasInstalacion||'—'));
-    f2('Fecha prevista inst.',p.fechaPrevistaInst,'','');y+=3;
+    f2('Fecha prevista inst.',p.fechaPrevistaInst||'—','','');y+=3;
+    f2('Precio de venta',p.precioVenta?p.precioVenta.toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—','Coste total',p.costeTotal?p.costeTotal.toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—');
     f2('Coste material',p.costeMaterial?p.costeMaterial+'€':'—','Coste M.O.',p.costeManoObra?p.costeManoObra+'€':'—');
-    f2('Otros costes',p.otrosCostes?p.otrosCostes+'€':'—','Margen',p.margen?p.margen+'%':'—');
+    f2('Otros costes',p.otrosCostes?p.otrosCostes+'€':'—','% Margen beneficio',p.margen?p.margen.toFixed(1)+'%':'—');
     doc.setFillColor(...VERDE);doc.rect(M,y,CW,8,'F');
     doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
-    const tot=p.presupuestoTotal?parseFloat(p.presupuestoTotal).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';
-    doc.text('TOTAL PRESUPUESTO: '+tot,M+3,y+5.5);
+    const tot=p.precioVenta?parseFloat(p.precioVenta).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';
+    const ben=p.beneficio?parseFloat(p.beneficio).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';
+    doc.text('PRECIO VENTA: '+tot+'   BENEFICIO: '+ben,M+3,y+5.5);
     doc.setTextColor(0,0,0);y+=12;
     if(p.notasInternas){
       f1('Notas internas',p.notasInternas);
@@ -667,11 +689,13 @@ window.exportarExcelParte=function(id){
     'Días producción':p.diasProduccion||'',
     'Días instalación':p.diasInstalacion||'',
     'Fecha prevista inst.':p.fechaPrevistaInst||'',
+    'Precio de venta (€)':p.precioVenta||0,
     'Coste material (€)':p.costeMaterial||0,
     'Coste M.O. (€)':p.costeManoObra||0,
     'Otros costes (€)':p.otrosCostes||0,
-    'Margen (%)':p.margen||0,
-    'TOTAL PRESUPUESTO (€)':p.presupuestoTotal||0,
+    'Coste total (€)':p.costeTotal||0,
+    'Beneficio (€)':p.beneficio||0,
+    '% Margen beneficio':p.margen?p.margen.toFixed(1)+'%':'',
     'Notas internas':p.notasInternas||'',
   }];
   const ws=XLSX.utils.json_to_sheet(datos);
@@ -708,11 +732,13 @@ window.exportarExcel=function(){
     'Días producción':p.diasProduccion||'',
     'Días instalación':p.diasInstalacion||'',
     'Fecha prevista inst.':p.fechaPrevistaInst||'',
+    'Precio de venta (€)':p.precioVenta||0,
     'Coste material':p.costeMaterial||0,
     'Coste M.O.':p.costeManoObra||0,
     'Otros costes':p.otrosCostes||0,
-    'Margen (%)':p.margen||0,
-    'TOTAL PRESUPUESTO':p.presupuestoTotal||0,
+    'Coste total':p.costeTotal||0,
+    'Beneficio (€)':p.beneficio||0,
+    '% Margen':p.margen?p.margen.toFixed(1)+'%':'',
     'Notas internas':p.notasInternas||'',
     'Observaciones':p.obs||'',
     'Dirección GPS':p.address||'',

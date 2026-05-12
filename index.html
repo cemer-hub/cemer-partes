@@ -94,7 +94,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .field input,.field textarea{border:1px solid #ddd;border-radius:8px;padding:9px 11px;font-size:15px;background:#fafafa;color:#111;width:100%;-webkit-appearance:none;appearance:none}
 .field input:focus,.field textarea:focus{outline:none;border-color:#2D6A2D;background:white;box-shadow:0 0 0 3px rgba(45,106,45,.1)}
 .field input[readonly]{background:#eaf5ea;color:#1a5c1a;font-weight:700;border-color:#b2d8b2}
-.field textarea{resize:none;min-height:80px;line-height:1.5}
+.field textarea{resize:vertical;min-height:80px;line-height:1.5}
 .toggle-group{display:flex;gap:6px;margin-top:2px}
 .toggle-btn{flex:1;padding:9px 0;border:1.5px solid #ddd;border-radius:8px;background:#fafafa;color:#888;font-size:14px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;-webkit-tap-highlight-color:transparent;user-select:none}
 .toggle-btn.si.active{background:#2D6A2D;border-color:#2D6A2D;color:white}
@@ -102,7 +102,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .loc-btn{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid #2D6A2D;background:#eaf5ea;color:#1a5c1a;padding:11px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;width:100%}
 .loc-btn:active{background:#d4edd4}
 .loc-info{margin-top:8px;padding:9px 12px;background:#f0f7f0;border-radius:8px;font-size:13px;color:#2D6A2D;display:none;line-height:1.4}
-.photos-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.photos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .pslot{aspect-ratio:1;border:2px dashed #ccc;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;background:#fafafa}
 .pslot:active{border-color:#2D6A2D;background:#eaf5ea}
 .pslot .plus{font-size:24px;color:#bbb;line-height:1}
@@ -224,7 +224,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="card">
   <div class="sec-title">Observaciones</div>
   <div class="fields">
-    <div class="field"><textarea id="obs" placeholder="Instalación de muelle volante y balancín…" rows="4"></textarea></div>
+    <div class="field"><textarea id="obs" placeholder="Instalación de muelle volante y balancín…" rows="6" style="min-height:120px;resize:vertical"></textarea></div>
   </div>
 </div>
 
@@ -245,7 +245,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <div class="card">
-  <div class="sec-title">Fotografías (máx. 5)</div>
+  <div class="sec-title">Fotografías (máx. 8)</div>
   <div class="fields">
     <div class="photos-grid" id="pgrid"></div>
   </div>
@@ -302,7 +302,7 @@ emailjs.init('k2eioeyEZZ8V9j9IN');
 const EMAILJS_SERVICE = 'service_5gdi9hg';
 const EMAILJS_TEMPLATE = 'template_ytbyh3i';
 
-const N = 5;
+const N = 8;
 const photos = new Array(N).fill(null);
 
 function fmtExp(n){ return 'ES-' + String(n).padStart(4,'0'); }
@@ -463,7 +463,7 @@ function prepEnvio(){
     <span class="preview-sec">Observaciones</span>
     <table class="preview-table">${row('',gv('obs'))}</table>
     <span class="preview-sec">Fotografías</span>
-    <table class="preview-table">${row('Adjuntas',photos.filter(Boolean).length+' de 5')}</table>`;
+    <table class="preview-table">${row('Adjuntas',photos.filter(Boolean).length+' de 8')}</table>`;
   document.getElementById('preview-content').innerHTML=html;
   document.getElementById('progress-wrap').style.display='none';
   document.getElementById('preview-actions').style.display='flex';
