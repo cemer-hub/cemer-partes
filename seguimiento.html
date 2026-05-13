@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a3a5c">
+<title>Seguimiento — Cemerplay</title>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+.header{background:#1a3a5c;color:white;padding:1rem 1.5rem;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.header a{color:rgba(255,255,255,.7);text-decoration:none;font-size:14px}
+.header a:hover{color:white}
+.header h1{font-size:17px;font-weight:600;flex:1}
+.exp-badge{background:rgba(255,255,255,.15);padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700}
+.container{max-width:900px;margin:0 auto;padding:1.5rem}
+
+/* Barra de progreso */
+.progress-section{background:white;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.progress-title{font-size:13px;color:#888;margin-bottom:12px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.progress-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;position:relative}
+.step{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.step-circle{width:36px;height:36px;border-radius:50%;border:2.5px solid #ddd;background:white;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;position:relative;z-index:1}
+.step.done .step-circle{background:#2D6A2D;border-color:#2D6A2D;color:white}
+.step.active .step-circle{background:#1a3a5c;border-color:#1a3a5c;color:white;box-shadow:0 0 0 3px rgba(26,58,92,.2)}
+.step.blocked .step-circle{background:#e74c3c;border-color:#e74c3c;color:white}
+.step-label{font-size:10px;color:#888;text-align:center;font-weight:500;line-height:1.2}
+.step.done .step-label{color:#2D6A2D;font-weight:600}
+.step.active .step-label{color:#1a3a5c;font-weight:700}
+.progress-bar-line{height:3px;background:#eee;border-radius:2px;margin:18px 0 6px;position:relative;overflow:hidden}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,#2D6A2D,#1a3a5c);border-radius:2px;transition:width .5s ease}
+.progress-pct{font-size:13px;color:#1a3a5c;font-weight:700;text-align:right}
+
+/* Tabs de fases */
+.tabs{display:flex;gap:4px;margin-bottom:1rem;overflow-x:auto;padding-bottom:4px}
+.tab{padding:8px 16px;border-radius:8px;border:1.5px solid #ddd;background:white;font-size:13px;cursor:pointer;font-weight:500;color:#555;white-space:nowrap;transition:all .15s}
+.tab:hover{border-color:#1a3a5c;color:#1a3a5c}
+.tab.active{background:#1a3a5c;border-color:#1a3a5c;color:white;font-weight:600}
+.tab.done{border-color:#2D6A2D;color:#2D6A2D}
+.tab.done.active{background:#2D6A2D;color:white}
+.tab.blocked{border-color:#e74c3c;color:#e74c3c}
+
+/* Tarjetas de fase */
+.phase-card{background:white;border-radius:14px;padding:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,.08);display:none}
+.phase-card.active{display:block}
+.phase-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px}
+.phase-title{font-size:17px;font-weight:700;color:#1a3a5c;display:flex;align-items:center;gap:8px}
+.phase-status{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer}
+.status-pendiente{background:#fef3cd;color:#856404}
+.status-en-curso{background:#cce5ff;color:#004085}
+.status-completado{background:#d4edda;color:#155724}
+.status-bloqueado{background:#f8d7da;color:#721c24}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid.g3{grid-template-columns:1fr 1fr 1fr}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-field label{font-size:11px;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.form-field input,.form-field select,.form-field textarea{border:1.5px solid #ddd;border-radius:8px;padding:8px 10px;font-size:14px;background:white;color:#111;width:100%}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:#1a3a5c;box-shadow:0 0 0 3px rgba(26,58,92,.1)}
+.form-field.full{grid-column:1/-1}
+.form-field textarea{resize:vertical;min-height:70px}
+
+.sec-sub{font-size:11px;font-weight:700;color:#1a3a5c;text-transform:uppercase;letter-spacing:.7px;margin:1.25rem 0 8px;padding-bottom:6px;border-bottom:2px solid #e8f0f8}
+
+/* Render upload */
+.render-zone{border:2px dashed #ddd;border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;background:#fafafa;transition:all .2s}
+.render-zone:hover{border-color:#1a3a5c;background:#f0f4f8}
+.render-zone img{max-width:100%;max-height:280px;border-radius:8px;margin-top:8px}
+.render-actions{display:flex;gap:8px;margin-top:8px;justify-content:center}
+
+/* Materiales */
+.materiales-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.material-row{display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr auto;gap:8px;align-items:center;background:#f8f9fa;padding:8px 10px;border-radius:8px}
+.material-row input,.material-row select{border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:13px;background:white;width:100%}
+.material-row select{font-size:12px}
+.btn-del-mat{background:none;border:none;color:#e74c3c;cursor:pointer;font-size:18px;padding:0 4px;line-height:1}
+.btn-add-mat{display:flex;align-items:center;gap:6px;border:1.5px dashed #1a3a5c;background:transparent;color:#1a3a5c;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;width:100%;justify-content:center;margin-top:4px}
+.mat-estado{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.mat-stock{background:#d4edda;color:#155724}
+.mat-pedido{background:#cce5ff;color:#004085}
+.mat-recibido{background:#d4edda;color:#0e4220}
+.mat-pendiente{background:#fef3cd;color:#856404}
+
+/* Producción */
+.prod-linea{background:#f8f9fa;border-radius:10px;padding:1rem;margin-bottom:10px;border-left:4px solid #ddd}
+.prod-linea.metal{border-left-color:#607d8b}
+.prod-linea.madera{border-left-color:#795548}
+.prod-linea-title{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+
+/* Checklist */
+.checklist{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.check-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8f9fa;border-radius:8px;cursor:pointer}
+.check-item input[type=checkbox]{width:18px;height:18px;accent-color:#2D6A2D;cursor:pointer;flex-shrink:0}
+.check-item label{font-size:14px;color:#333;cursor:pointer;flex:1}
+.check-item.checked{background:#eaf5ea}
+.check-item.checked label{color:#155724;text-decoration:line-through;opacity:.7}
+
+/* Acta entrega */
+.acta-box{background:#f8f9fa;border-radius:10px;padding:1.25rem;border:1.5px solid #ddd}
+.acta-firma{background:#fff8e1;border:1.5px solid #ffe082;border-radius:10px;padding:1.25rem;margin-top:12px}
+.acta-check{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.acta-check input[type=checkbox]{width:20px;height:20px;accent-color:#2D6A2D;margin-top:2px;flex-shrink:0}
+.acta-check label{font-size:14px;color:#333;line-height:1.5}
+.btn-acta{background:#2D6A2D;color:white;border:none;padding:11px 22px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;width:100%;margin-top:12px}
+.btn-acta:disabled{background:#ccc;cursor:not-allowed}
+.acta-generada{background:#d4edda;border:1.5px solid #a8d5a8;border-radius:10px;padding:1rem;text-align:center;margin-top:12px;display:none}
+.acta-generada .icon{font-size:32px;margin-bottom:6px}
+.acta-generada p{font-size:14px;color:#155724;font-weight:600}
+
+/* Botones */
+.btn-save-phase{background:#1a3a5c;color:white;border:none;padding:11px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;margin-top:1.25rem}
+.btn-save-phase:hover{background:#122840}
+.btn-completar{background:#2D6A2D;color:white;border:none;padding:11px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:700;margin-top:1.25rem;margin-left:8px}
+.btn-completar:hover{background:#235223}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#2D6A2D;color:white;padding:10px 20px;border-radius:24px;font-size:14px;font-weight:500;display:none;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.toast.error{background:#c0392b}
+
+@media(max-width:600px){
+  .form-grid{grid-template-columns:1fr}
+  .form-grid.g3{grid-template-columns:1fr 1fr}
+  .progress-steps{grid-template-columns:repeat(3,1fr);gap:8px}
+  .material-row{grid-template-columns:1fr 1fr;gap:6px}
+  .material-row input:first-child{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="admin.html">← Panel interno</a>
+  <h1 id="header-title">Seguimiento del parte</h1>
+  <span class="exp-badge" id="header-exp">—</span>
+</div>
+
+<div class="container">
+
+  <!-- Barra de progreso global -->
+  <div class="progress-section">
+    <div class="progress-title">Progreso general del parte</div>
+    <div class="progress-steps" id="progress-steps">
+      <div class="step" onclick="irFase(0)"><div class="step-circle">💰</div><div class="step-label">Presupuesto</div></div>
+      <div class="step" onclick="irFase(1)"><div class="step-circle">🎨</div><div class="step-label">Diseño</div></div>
+      <div class="step" onclick="irFase(2)"><div class="step-circle">📦</div><div class="step-label">Stock/Compras</div></div>
+      <div class="step" onclick="irFase(3)"><div class="step-circle">🔧</div><div class="step-label">Producción</div></div>
+      <div class="step" onclick="irFase(4)"><div class="step-circle">🚛</div><div class="step-label">Instalación</div></div>
+      <div class="step" onclick="irFase(5)"><div class="step-circle">✅</div><div class="step-label">Calidad</div></div>
+    </div>
+    <div class="progress-bar-line"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="progress-pct" id="progress-pct">0% completado</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabs">
+    <button class="tab active" onclick="irFase(0)">💰 Presupuesto</button>
+    <button class="tab" onclick="irFase(1)">🎨 Diseño</button>
+    <button class="tab" onclick="irFase(2)">📦 Stock/Compras</button>
+    <button class="tab" onclick="irFase(3)">🔧 Producción</button>
+    <button class="tab" onclick="irFase(4)">🚛 Instalación</button>
+    <button class="tab" onclick="irFase(5)">✅ Calidad</button>
+  </div>
+
+  <!-- FASE 0: PRESUPUESTO -->
+  <div class="phase-card active" id="fase-0">
+    <div class="phase-header">
+      <div class="phase-title">💰 Presupuesto</div>
+      <div class="phase-status status-pendiente" id="status-0" onclick="ciclarEstado(0)">Pendiente</div>
+    </div>
+    <div class="form-grid">
+      <div class="form-field"><label>Cliente</label><input type="text" id="p-cliente" readonly></div>
+      <div class="form-field"><label>Comercial</label><input type="text" id="p-comercial" readonly></div>
+      <div class="form-field"><label>Fecha firma contrato</label><input type="date" id="p-fecha-firma" readonly></div>
+      <div class="form-field"><label>Precio de venta (€)</label><input type="number" id="p-precio" step="0.01"></div>
+      <div class="form-field"><label>Coste total (€)</label><input type="number" id="p-coste" step="0.01"></div>
+      <div class="form-field"><label>Margen beneficio</label><input type="text" id="p-margen" readonly style="background:#eaf5ea;font-weight:700;color:#1a5c1a"></div>
+      <div class="form-field full"><label>Observaciones del presupuesto</label><textarea id="p-obs" rows="3"></textarea></div>
+    </div>
+    <div>
+      <button class="btn-save-phase" onclick="guardarFase(0)">Guardar</button>
+      <button class="btn-completar" onclick="completarFase(0)">✓ Marcar como completado</button>
+    </div>
+  </div>
+
+  <!-- FASE 1: DISEÑO -->
+  <div class="phase-card" id="fase-1">
+    <div class="phase-header">
+      <div class="phase-title">🎨 Diseño</div>
+      <div class="phase-status status-pendiente" id="status-1" onclick="ciclarEstado(1)">Pendiente</div>
+    </div>
+    <div class="form-grid">
+      <div class="form-field"><label>Diseñador responsable</label><input type="text" id="d-disenador" placeholder="Nombre del diseñador"></div>
+      <div class="form-field"><label>Fecha límite diseño</label><input type="date" id="d-fecha-limite"></div>
+      <div class="form-field full"><label>Descripción del diseño</label><textarea id="d-descripcion" rows="3" placeholder="Detalles del diseño, materiales, colores…"></textarea></div>
+    </div>
+    <div class="sec-sub">Render / Imagen del proyecto</div>
+    <div class="render-zone" id="render-zone" onclick="document.getElementById('render-input').click()">
+      <div id="render-placeholder">
+        <div style="font-size:32px">🖼</div>
+        <div style="font-size:14px;color:#888;margin-top:6px">Pulsa para adjuntar el render</div>
+        <div style="font-size:12px;color:#aaa;margin-top:2px">JPG, PNG — máx. 5MB</div>
+      </div>
+      <img id="render-preview" style="display:none">
+    </div>
+    <input type="file" id="render-input" accept="image/*" style="display:none" onchange="cargarRender(event)">
+    <div class="render-actions" id="render-actions" style="display:none">
+      <button onclick="document.getElementById('render-input').click()" style="border:1px solid #ddd;background:white;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Cambiar imagen</button>
+      <button onclick="borrarRender()" style="border:1px solid #fcc;background:#fee;color:#c0392b;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Eliminar</button>
+    </div>
+
+    <div class="sec-sub">Aprobación del cliente</div>
+    <div class="form-grid">
+      <div class="form-field"><label>Estado aprobación</label>
+        <select id="d-aprobacion">
+          <option value="pendiente">⏳ Pendiente de envío</option>
+          <option value="enviado">📤 Enviado al cliente</option>
+          <option value="aprobado">✅ Aprobado por cliente</option>
+          <option value="rechazado">❌ Rechazado — en revisión</option>
+        </select>
+      </div>
+      <div class="form-field"><label>Fecha aprobación</label><input type="date" id="d-fecha-aprobacion"></div>
+      <div class="form-field full"><label>Comentarios del cliente</label><textarea id="d-comentarios" rows="2" placeholder="Cambios solicitados, observaciones…"></textarea></div>
+    </div>
+    <div>
+      <button class="btn-save-phase" onclick="guardarFase(1)">Guardar</button>
+      <button class="btn-completar" onclick="completarFase(1)">✓ Marcar como completado</button>
+    </div>
+  </div>
+
+  <!-- FASE 2: STOCK/COMPRAS -->
+  <div class="phase-card" id="fase-2">
+    <div class="phase-header">
+      <div class="phase-title">📦 Stock / Compras</div>
+      <div class="phase-status status-pendiente" id="status-2" onclick="ciclarEstado(2)">Pendiente</div>
+    </div>
+    <div class="form-grid">
+      <div class="form-field"><label>Responsable compras</label><input type="text" id="c-responsable" placeholder="Nombre"></div>
+      <div class="form-field"><label>Fecha límite recepción</label><input type="date" id="c-fecha-limite"></div>
+    </div>
+
+    <div class="sec-sub">Lista de materiales</div>
+    <div style="overflow-x:auto">
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr auto;gap:8px;padding:0 10px 4px;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.3px;min-width:500px">
+        <span>Material</span><span>Cantidad</span><span>Proveedor</span><span>Estado</span><span></span>
+      </div>
+      <div class="materiales-list" id="materiales-list"></div>
+    </div>
+    <button class="btn-add-mat" onclick="addMaterial()">+ Añadir material</button>
+
+    <div class="form-field full" style="margin-top:12px"><label>Notas de compras</label><textarea id="c-notas" rows="2" placeholder="Observaciones, plazos de entrega especiales…"></textarea></div>
+    <div>
+      <button class="btn-save-phase" onclick="guardarFase(2)">Guardar</button>
+      <button class="btn-completar" onclick="completarFase(2)">✓ Marcar como completado</button>
+    </div>
+  </div>
+
+  <!-- FASE 3: PRODUCCIÓN -->
+  <div class="phase-card" id="fase-3">
+    <div class="phase-header">
+      <div class="phase-title">🔧 Producción</div>
+      <div class="phase-status status-pendiente" id="status-3" onclick="ciclarEstado(3)">Pendiente</div>
+    </div>
+
+    <!-- Línea Metal -->
+    <div class="prod-linea metal">
+      <div class="prod-linea-title">⚙️ Línea Metal</div>
+      <div class="form-grid">
+        <div class="form-field"><label>Operario responsable</label><input type="text" id="m-operario" placeholder="Nombre"></div>
+        <div class="form-field"><label>Estado</label>
+          <select id="m-estado">
+            <option value="pendiente">⏳ Pendiente</option>
+            <option value="en-curso">🔄 En curso</option>
+            <option value="completado">✅ Completado</option>
+            <option value="bloqueado">🚫 Bloqueado</option>
+          </select>
+        </div>
+        <div class="form-field"><label>Fecha inicio</label><input type="date" id="m-inicio"></div>
+        <div class="form-field"><label>Fecha fin prevista</label><input type="date" id="m-fin"></div>
+        <div class="form-field full"><label>Notas línea metal</label><textarea id="m-notas" rows="2" placeholder="Detalles de producción, incidencias…"></textarea></div>
+      </div>
+    </div>
+
+    <!-- Línea Madera -->
+    <div class="prod-linea madera">
+      <div class="prod-linea-title">🪵 Línea Madera</div>
+      <div class="form-grid">
+        <div class="form-field"><label>Operario responsable</label><input type="text" id="ma-operario" placeholder="Nombre"></div>
+        <div class="form-field"><label>Estado</label>
+          <select id="ma-estado">
+            <option value="pendiente">⏳ Pendiente</option>
+            <option value="en-curso">🔄 En curso</option>
+            <option value="completado">✅ Completado</option>
+            <option value="bloqueado">🚫 Bloqueado</option>
+          </select>
+        </div>
+        <div class="form-field"><label>Fecha inicio</label><input type="date" id="ma-inicio"></div>
+        <div class="form-field"><label>Fecha fin prevista</label><input type="date" id="ma-fin"></div>
+        <div class="form-field full"><label>Notas línea madera</label><textarea id="ma-notas" rows="2" placeholder="Detalles de producción, incidencias…"></textarea></div>
+      </div>
+    </div>
+
+    <div class="form-field" style="margin-top:8px"><label>Días de producción totales</label><input type="number" id="prod-dias" min="1" placeholder="0"></div>
+    <div>
+      <button class="btn-save-phase" onclick="guardarFase(3)">Guardar</button>
+      <button class="btn-completar" onclick="completarFase(3)">✓ Marcar como completado</button>
+    </div>
+  </div>
+
+  <!-- FASE 4: INSTALACIÓN -->
+  <div class="phase-card" id="fase-4">
+    <div class="phase-header">
+      <div class="phase-title">🚛 Instalación</div>
+      <div class="phase-status status-pendiente" id="status-4" onclick="ciclarEstado(4)">Pendiente</div>
+    </div>
+    <div class="form-grid">
+      <div class="form-field"><label>Instalador responsable</label><input type="text" id="i-instalador" placeholder="Nombre del instalador"></div>
+      <div class="form-field"><label>Fecha de instalación</label><input type="date" id="i-fecha"></div>
+      <div class="form-field"><label>Días de instalación</label><input type="number" id="i-dias" min="1" placeholder="0"></div>
+      <div class="form-field"><label>Dirección obra</label><input type="text" id="i-direccion" readonly></div>
+      <div class="form-field full"><label>Notas de instalación</label><textarea id="i-notas" rows="2" placeholder="Acceso, herramientas necesarias, observaciones…"></textarea></div>
+    </div>
+
+    <div class="sec-sub">Checklist de instalación</div>
+    <div class="checklist" id="checklist-inst">
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Materiales y equipos cargados en vehículo</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Confirmación de acceso a la obra</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Replanteo y nivelación correcta</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Fijación y anclaje completados</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Revisión de seguridad de todos los elementos</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Limpieza de la zona de trabajo</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Fotografías de instalación realizadas</label></div>
+    </div>
+    <div>
+      <button class="btn-save-phase" onclick="guardarFase(4)">Guardar</button>
+      <button class="btn-completar" onclick="completarFase(4)">✓ Marcar como completado</button>
+    </div>
+  </div>
+
+  <!-- FASE 5: CALIDAD -->
+  <div class="phase-card" id="fase-5">
+    <div class="phase-header">
+      <div class="phase-title">✅ Calidad y entrega</div>
+      <div class="phase-status status-pendiente" id="status-5" onclick="ciclarEstado(5)">Pendiente</div>
+    </div>
+
+    <div class="sec-sub">Revisión interna de calidad</div>
+    <div class="checklist" id="checklist-cal">
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Comprobación de tornillería y anclajes</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Verificación de acabados superficiales</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Prueba de movimiento y funcionamiento</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Comprobación de medidas de seguridad</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Revisión de pavimento de seguridad</label></div>
+      <div class="check-item" onclick="toggleCheck(this)"><input type="checkbox"><label>Verificación de señalética y normativa</label></div>
+    </div>
+
+    <div class="form-field" style="margin-top:12px"><label>Inspector de calidad</label><input type="text" id="q-inspector" placeholder="Nombre"></div>
+    <div class="form-field" style="margin-top:8px"><label>Observaciones de calidad</label><textarea id="q-obs" rows="3" placeholder="Incidencias detectadas, soluciones aplicadas…"></textarea></div>
+
+    <div class="sec-sub">Acta de entrega al cliente</div>
+    <div class="acta-box">
+      <div class="form-grid">
+        <div class="form-field"><label>Nombre del cliente (receptor)</label><input type="text" id="acta-nombre" placeholder="Nombre completo"></div>
+        <div class="form-field"><label>DNI / NIF</label><input type="text" id="acta-dni" placeholder="12345678A"></div>
+        <div class="form-field"><label>Fecha de entrega</label><input type="date" id="acta-fecha"></div>
+        <div class="form-field"><label>Cargo / Representación</label><input type="text" id="acta-cargo" placeholder="Director, Responsable…"></div>
+      </div>
+      <div class="acta-firma">
+        <div class="acta-check">
+          <input type="checkbox" id="acta-conforme" onchange="verificarActa()">
+          <label for="acta-conforme">El cliente declara haber recibido e inspeccionado la instalación y la considera conforme a lo acordado en el presupuesto, sin reservas ni defectos visibles en el momento de la entrega.</label>
+        </div>
+        <div class="acta-check">
+          <input type="checkbox" id="acta-garantia" onchange="verificarActa()">
+          <label for="acta-garantia">El cliente ha sido informado de las condiciones de garantía y mantenimiento del producto instalado.</label>
+        </div>
+        <button class="btn-acta" id="btn-generar-acta" onclick="generarActa()" disabled>📄 Generar acta de entrega en PDF</button>
+      </div>
+      <div class="acta-generada" id="acta-generada">
+        <div class="icon">✅</div>
+        <p>Acta de entrega generada correctamente</p>
+        <button onclick="generarActa()" style="margin-top:8px;border:1px solid #2D6A2D;background:white;color:#2D6A2D;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Volver a descargar</button>
+      </div>
+    </div>
+
+    <div>
+      <button class="btn-save-phase" onclick="guardarFase(5)">Guardar</button>
+      <button class="btn-completar" onclick="completarFase(5)">✓ Marcar como completado</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCXezpF5oEVRVnbUI08YcL9ffdRiW3fBC0",
+  authDomain: "cemerplay-partes.firebaseapp.com",
+  projectId: "cemerplay-partes",
+  storageBucket: "cemerplay-partes.firebasestorage.app",
+  messagingSenderId: "7185852141",
+  appId: "1:7185852141:web:b085205ff8d98baa53cee4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const ESTADOS = ['pendiente','en-curso','completado','bloqueado'];
+const ESTADO_LABELS = {'pendiente':'Pendiente','en-curso':'En curso','completado':'Completado','bloqueado':'Bloqueado'};
+const ESTADO_CLASSES = {'pendiente':'status-pendiente','en-curso':'status-en-curso','completado':'status-completado','bloqueado':'status-bloqueado'};
+const FASES = ['presupuesto','diseno','compras','produccion','instalacion','calidad'];
+
+let parteId = null;
+let parteData = {};
+let faseActual = 0;
+let renderData = null;
+
+// Obtener ID del parte desde URL
+const params = new URLSearchParams(window.location.search);
+parteId = params.get('id');
+
+if(!parteId){
+  document.querySelector('.container').innerHTML = '<div style="text-align:center;padding:3rem;color:#888">No se especificó un parte. <a href="admin.html">Volver al panel</a></div>';
+} else {
+  cargarParte();
+}
+
+async function cargarParte(){
+  try{
+    const snap = await getDoc(doc(db,'partes',parteId));
+    if(!snap.exists()){ throw new Error('Parte no encontrado'); }
+    parteData = snap.data();
+    document.getElementById('header-title').textContent = parteData.nombre || 'Seguimiento';
+    document.getElementById('header-exp').textContent = parteData.expediente || '—';
+
+    // Rellenar datos de presupuesto
+    document.getElementById('p-cliente').value = parteData.nombre||'';
+    document.getElementById('p-comercial').value = parteData.comercial||'';
+    document.getElementById('p-fecha-firma').value = parteData.fechaFirma||'';
+    document.getElementById('p-precio').value = parteData.precioVenta||'';
+    document.getElementById('p-coste').value = parteData.costeTotal||'';
+    document.getElementById('p-obs').value = parteData.obs||'';
+    calcMargen();
+
+    document.getElementById('i-direccion').value = (parteData.direccion||'')+(parteData.poblacion?' — '+parteData.poblacion:'');
+
+    // Cargar datos de seguimiento si existen
+    const seg = parteData.seguimiento || {};
+    cargarDatosFase(seg);
+    actualizarProgreso();
+  }catch(e){
+    showToast('Error cargando parte: '+e.message, true);
+  }
+}
+
+function calcMargen(){
+  const precio = parseFloat(document.getElementById('p-precio').value)||0;
+  const coste = parseFloat(document.getElementById('p-coste').value)||0;
+  if(precio>0){
+    const m = ((precio-coste)/precio*100).toFixed(1);
+    document.getElementById('p-margen').value = m+'%';
+  } else {
+    document.getElementById('p-margen').value = '—';
+  }
+}
+document.getElementById('p-precio').addEventListener('input', calcMargen);
+document.getElementById('p-coste').addEventListener('input', calcMargen);
+
+function cargarDatosFase(seg){
+  // Diseño
+  if(seg.diseno){
+    const d=seg.diseno;
+    setVal('d-disenador',d.disenador);setVal('d-fecha-limite',d.fechaLimite);
+    setVal('d-descripcion',d.descripcion);setVal('d-aprobacion',d.aprobacion);
+    setVal('d-fecha-aprobacion',d.fechaAprobacion);setVal('d-comentarios',d.comentarios);
+    if(d.render){ renderData=d.render; mostrarRender(d.render); }
+  }
+  // Compras
+  if(seg.compras){
+    const c=seg.compras;
+    setVal('c-responsable',c.responsable);setVal('c-fecha-limite',c.fechaLimite);
+    setVal('c-notas',c.notas);
+    if(c.materiales) cargarMateriales(c.materiales);
+  }
+  // Producción
+  if(seg.produccion){
+    const p=seg.produccion;
+    setVal('m-operario',p.metalOperario);setVal('m-estado',p.metalEstado);
+    setVal('m-inicio',p.metalInicio);setVal('m-fin',p.metalFin);setVal('m-notas',p.metalNotas);
+    setVal('ma-operario',p.maderaOperario);setVal('ma-estado',p.maderaEstado);
+    setVal('ma-inicio',p.maderaInicio);setVal('ma-fin',p.maderaFin);setVal('ma-notas',p.maderaNotas);
+    setVal('prod-dias',p.dias);
+  }
+  // Instalación
+  if(seg.instalacion){
+    const i=seg.instalacion;
+    setVal('i-instalador',i.instalador);setVal('i-fecha',i.fecha);
+    setVal('i-dias',i.dias);setVal('i-notas',i.notas);
+    if(i.checklist) cargarChecklist('checklist-inst', i.checklist);
+  }
+  // Calidad
+  if(seg.calidad){
+    const q=seg.calidad;
+    setVal('q-inspector',q.inspector);setVal('q-obs',q.obs);
+    if(q.checklist) cargarChecklist('checklist-cal', q.checklist);
+    setVal('acta-nombre',q.actaNombre);setVal('acta-dni',q.actaDni);
+    setVal('acta-fecha',q.actaFecha);setVal('acta-cargo',q.actaCargo);
+    if(q.actaGenerada){ document.getElementById('acta-generada').style.display='block'; }
+  }
+  // Estados de fases
+  if(seg.estados){
+    FASES.forEach((f,i)=>{
+      if(seg.estados[f]) actualizarEstadoUI(i, seg.estados[f]);
+    });
+  }
+}
+
+function setVal(id, val){
+  const el=document.getElementById(id);
+  if(el && val!==undefined && val!==null) el.value=val;
+}
+
+// Materiales
+let materiales = [];
+window.addMaterial = function(){
+  materiales.push({nombre:'',cantidad:'',proveedor:'',estado:'pendiente'});
+  renderMateriales();
+};
+function renderMateriales(){
+  const list=document.getElementById('materiales-list');
+  list.innerHTML=materiales.map((m,i)=>`
+    <div class="material-row" style="min-width:500px">
+      <input type="text" value="${m.nombre}" placeholder="Nombre del material" onchange="materiales[${i}].nombre=this.value">
+      <input type="text" value="${m.cantidad}" placeholder="Cant." onchange="materiales[${i}].cantidad=this.value">
+      <input type="text" value="${m.proveedor}" placeholder="Proveedor" onchange="materiales[${i}].proveedor=this.value">
+      <select onchange="materiales[${i}].estado=this.value">
+        <option value="pendiente" ${m.estado==='pendiente'?'selected':''}>⏳ Pendiente</option>
+        <option value="en-stock" ${m.estado==='en-stock'?'selected':''}>✅ En stock</option>
+        <option value="pedido" ${m.estado==='pedido'?'selected':''}>📤 Pedido</option>
+        <option value="recibido" ${m.estado==='recibido'?'selected':''}>📦 Recibido</option>
+      </select>
+      <button class="btn-del-mat" onclick="borrarMaterial(${i})">×</button>
+    </div>`).join('');
+}
+function cargarMateriales(mats){ materiales=mats; renderMateriales(); }
+window.borrarMaterial = function(i){ materiales.splice(i,1); renderMateriales(); };
+
+// Render
+window.cargarRender = function(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{ renderData=ev.target.result; mostrarRender(renderData); };
+  r.readAsDataURL(f);
+};
+function mostrarRender(src){
+  document.getElementById('render-placeholder').style.display='none';
+  const img=document.getElementById('render-preview');
+  img.src=src; img.style.display='block';
+  document.getElementById('render-actions').style.display='flex';
+}
+window.borrarRender = function(){
+  renderData=null;
+  document.getElementById('render-preview').style.display='none';
+  document.getElementById('render-placeholder').style.display='block';
+  document.getElementById('render-actions').style.display='none';
+  document.getElementById('render-input').value='';
+};
+
+// Checklist
+window.toggleCheck = function(item){
+  const cb=item.querySelector('input[type=checkbox]');
+  cb.checked=!cb.checked;
+  item.classList.toggle('checked', cb.checked);
+};
+function cargarChecklist(containerId, estados){
+  const items=document.getElementById(containerId).querySelectorAll('.check-item');
+  items.forEach((item,i)=>{
+    if(estados[i]){
+      item.querySelector('input').checked=true;
+      item.classList.add('checked');
+    }
+  });
+}
+function getChecklist(containerId){
+  return Array.from(document.getElementById(containerId).querySelectorAll('.check-item'))
+    .map(item=>item.querySelector('input').checked);
+}
+
+// Navegación fases
+window.irFase = function(n){
+  faseActual=n;
+  document.querySelectorAll('.phase-card').forEach((c,i)=>c.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+};
+
+// Estados
+window.ciclarEstado = function(fase){
+  const el=document.getElementById('status-'+fase);
+  const current=el.dataset.estado||'pendiente';
+  const idx=ESTADOS.indexOf(current);
+  const next=ESTADOS[(idx+1)%ESTADOS.length];
+  actualizarEstadoUI(fase, next);
+};
+function actualizarEstadoUI(fase, estado){
+  const el=document.getElementById('status-'+fase);
+  el.dataset.estado=estado;
+  el.textContent=ESTADO_LABELS[estado]||estado;
+  el.className='phase-status '+ESTADO_CLASSES[estado];
+  actualizarProgreso();
+}
+
+function actualizarProgreso(){
+  const steps=document.querySelectorAll('.step');
+  const tabs=document.querySelectorAll('.tab');
+  let completadas=0;
+  FASES.forEach((f,i)=>{
+    const el=document.getElementById('status-'+i);
+    const estado=el?.dataset.estado||'pendiente';
+    steps[i].className='step '+(estado==='completado'?'done':estado==='bloqueado'?'blocked':i===faseActual?'active':'');
+    tabs[i].className='tab '+(estado==='completado'?'done':'')+(i===faseActual?' active':'')+(estado==='bloqueado'?' blocked':'');
+    if(estado==='completado') completadas++;
+  });
+  const pct=Math.round(completadas/6*100);
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('progress-pct').textContent=pct+'% completado';
+}
+
+window.completarFase = async function(fase){
+  await guardarFase(fase);
+  actualizarEstadoUI(fase,'completado');
+  await guardarEstados();
+  if(fase<5) setTimeout(()=>irFase(fase+1),300);
+};
+
+async function guardarEstados(){
+  const estados={};
+  FASES.forEach((f,i)=>{
+    const el=document.getElementById('status-'+i);
+    estados[f]=el?.dataset.estado||'pendiente';
+  });
+  // Calcular estado general del parte
+  const hayBloqueado=Object.values(estados).includes('bloqueado');
+  const todoCompleto=Object.values(estados).every(e=>e==='completado');
+  const hayEnCurso=Object.values(estados).includes('en-curso')||Object.values(estados).includes('completado');
+  const estadoParte=todoCompleto?'ejecutado':hayBloqueado?'pendiente':hayEnCurso?'en-proceso':'pendiente';
+  await updateDoc(doc(db,'partes',parteId),{
+    'seguimiento.estados': estados,
+    estado: estadoParte
+  });
+}
+
+window.guardarFase = async function(fase){
+  let datos={};
+  if(fase===0){
+    datos={'seguimiento.presupuesto':{
+      precio:document.getElementById('p-precio').value,
+      coste:document.getElementById('p-coste').value,
+      obs:document.getElementById('p-obs').value
+    }, precioVenta:parseFloat(document.getElementById('p-precio').value)||0,
+       costeTotal:parseFloat(document.getElementById('p-coste').value)||0};
+  } else if(fase===1){
+    datos={'seguimiento.diseno':{
+      disenador:document.getElementById('d-disenador').value,
+      fechaLimite:document.getElementById('d-fecha-limite').value,
+      descripcion:document.getElementById('d-descripcion').value,
+      aprobacion:document.getElementById('d-aprobacion').value,
+      fechaAprobacion:document.getElementById('d-fecha-aprobacion').value,
+      comentarios:document.getElementById('d-comentarios').value,
+      render:renderData||null
+    }};
+  } else if(fase===2){
+    datos={'seguimiento.compras':{
+      responsable:document.getElementById('c-responsable').value,
+      fechaLimite:document.getElementById('c-fecha-limite').value,
+      notas:document.getElementById('c-notas').value,
+      materiales:[...materiales]
+    }};
+  } else if(fase===3){
+    datos={'seguimiento.produccion':{
+      metalOperario:document.getElementById('m-operario').value,
+      metalEstado:document.getElementById('m-estado').value,
+      metalInicio:document.getElementById('m-inicio').value,
+      metalFin:document.getElementById('m-fin').value,
+      metalNotas:document.getElementById('m-notas').value,
+      maderaOperario:document.getElementById('ma-operario').value,
+      maderaEstado:document.getElementById('ma-estado').value,
+      maderaInicio:document.getElementById('ma-inicio').value,
+      maderaFin:document.getElementById('ma-fin').value,
+      maderaNotas:document.getElementById('ma-notas').value,
+      dias:document.getElementById('prod-dias').value
+    }};
+  } else if(fase===4){
+    datos={'seguimiento.instalacion':{
+      instalador:document.getElementById('i-instalador').value,
+      fecha:document.getElementById('i-fecha').value,
+      dias:document.getElementById('i-dias').value,
+      notas:document.getElementById('i-notas').value,
+      checklist:getChecklist('checklist-inst')
+    }, diasInstalacion:document.getElementById('i-dias').value};
+  } else if(fase===5){
+    datos={'seguimiento.calidad':{
+      inspector:document.getElementById('q-inspector').value,
+      obs:document.getElementById('q-obs').value,
+      checklist:getChecklist('checklist-cal'),
+      actaNombre:document.getElementById('acta-nombre').value,
+      actaDni:document.getElementById('acta-dni').value,
+      actaFecha:document.getElementById('acta-fecha').value,
+      actaCargo:document.getElementById('acta-cargo').value,
+      actaGenerada:document.getElementById('acta-generada').style.display!=='none'
+    }};
+  }
+  await guardarEstados();
+  try{
+    await updateDoc(doc(db,'partes',parteId), datos);
+    showToast('✓ Guardado correctamente');
+  }catch(e){ showToast('Error: '+e.message, true); }
+};
+
+// Verificar si se puede generar acta
+window.verificarActa = function(){
+  const ok=document.getElementById('acta-conforme').checked &&
+            document.getElementById('acta-garantia').checked;
+  document.getElementById('btn-generar-acta').disabled=!ok;
+};
+
+// Generar acta PDF
+window.generarActa = async function(){
+  const {jsPDF}=window.jspdf;
+  const doc2=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, M=20;
+  let y=M;
+
+  // Cabecera
+  doc2.setFillColor(26,58,92);doc2.rect(0,0,W,30,'F');
+  doc2.setTextColor(255,255,255);doc2.setFontSize(18);doc2.setFont('helvetica','bold');
+  doc2.text('ACTA DE ENTREGA',M,16);
+  doc2.setFontSize(11);doc2.setFont('helvetica','normal');
+  doc2.text('Cemerplay',M,23);
+  doc2.setTextColor(0,0,0);y=42;
+
+  function linea(label,val){
+    if(y>270){doc2.addPage();y=M;}
+    doc2.setFontSize(9);doc2.setFont('helvetica','bold');doc2.setTextColor(80,80,80);
+    doc2.text(label.toUpperCase(),M,y);
+    doc2.setFont('helvetica','normal');doc2.setTextColor(0,0,0);doc2.setFontSize(11);
+    doc2.text(val||'—',M,y+6);
+    y+=14;
+  }
+  function seccion(titulo){
+    if(y>260){doc2.addPage();y=M;}
+    doc2.setFillColor(26,58,92);doc2.rect(M,y,W-M*2,8,'F');
+    doc2.setTextColor(255,255,255);doc2.setFontSize(10);doc2.setFont('helvetica','bold');
+    doc2.text(titulo.toUpperCase(),M+3,y+5.5);
+    doc2.setTextColor(0,0,0);y+=12;
+  }
+
+  seccion('Datos de la instalación');
+  linea('N Expediente', parteData.expediente);
+  linea('Cliente', parteData.nombre);
+  linea('Dirección de la obra', (parteData.direccion||'')+(parteData.poblacion?' — '+parteData.poblacion:''));
+  linea('Fecha de instalación', document.getElementById('i-fecha').value||document.getElementById('acta-fecha').value);
+  linea('Instalador responsable', document.getElementById('i-instalador').value);
+
+  seccion('Datos del receptor');
+  linea('Nombre completo', document.getElementById('acta-nombre').value);
+  linea('DNI / NIF', document.getElementById('acta-dni').value);
+  linea('Cargo / Representación', document.getElementById('acta-cargo').value);
+  linea('Fecha de entrega', document.getElementById('acta-fecha').value);
+
+  seccion('Declaración de conformidad');
+  y+=4;
+  doc2.setFontSize(11);doc2.setFont('helvetica','normal');doc2.setTextColor(0,0,0);
+  const texto='El receptor declara haber recibido e inspeccionado la instalación y la considera conforme a lo acordado en el presupuesto '+parteData.expediente+', sin reservas ni defectos visibles en el momento de la entrega. Así mismo declara haber sido informado de las condiciones de garantía y mantenimiento del producto instalado.';
+  const lineas=doc2.splitTextToSize(texto,W-M*2);
+  doc2.text(lineas,M,y);y+=lineas.length*6+10;
+
+  seccion('Firma');
+  y+=6;
+  doc2.setDrawColor(180,180,180);doc2.line(M,y+20,W/2-5,y+20);
+  doc2.line(W/2+5,y+20,W-M,y+20);
+  doc2.setFontSize(9);doc2.setTextColor(120,120,120);
+  doc2.text('Firma del receptor',M,y+25);
+  doc2.text('Firma Cemerplay',W/2+5,y+25);
+  doc2.setFontSize(10);doc2.setTextColor(0,0,0);
+  doc2.text(document.getElementById('acta-nombre').value,M,y+32);
+  doc2.text('Cemerplay S.L.',W/2+5,y+32);
+  y+=40;
+
+  // Pie
+  doc2.setFontSize(8);doc2.setTextColor(150,150,150);
+  doc2.text('Documento generado el '+new Date().toLocaleDateString('es-ES')+' — Cemerplay',M,285);
+
+  doc2.save('Acta_Entrega_'+parteData.expediente+'.pdf');
+
+  // Guardar que el acta fue generada
+  document.getElementById('acta-generada').style.display='block';
+  await updateDoc(doc(db,'partes',parteId),{'seguimiento.calidad.actaGenerada':true, 'seguimiento.calidad.actaFecha':new Date().toISOString()});
+  showToast('✓ Acta de entrega generada');
+};
+
+function showToast(msg,error=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast'+(error?' error':'');t.style.display='block';
+  clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000);
+}
+</script>
+</body>
+</html>
