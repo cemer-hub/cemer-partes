@@ -65,7 +65,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .parte-fecha{font-size:12px;color:#aaa}
 .parte-cliente{font-size:14px;color:#333;font-weight:500;margin-bottom:4px}
 .parte-meta{display:flex;gap:12px;font-size:12px;color:#888;flex-wrap:wrap}
-.card-actions{display:flex;gap:6px;align-items:center}
+.card-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
 .badge.pendiente{background:#fef3cd;color:#856404}
 .badge.en-proceso{background:#cce5ff;color:#004085}
@@ -77,9 +77,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-del:hover{background:#fcc}
 .btn-pdf-card{background:#eef3ff;border:1px solid #c5d3f5;color:#1a3a5c;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600}
 .btn-pdf-card:hover{background:#c5d3f5}
+.btn-seg{background:#f0f7f0;border:1px solid #a8d5a8;color:#1a5c1a;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:700}
+.btn-seg:hover{background:#d4edd4}
 .empty{text-align:center;padding:3rem;color:#aaa;font-size:15px}
 .loading{text-align:center;padding:3rem;color:#888}
-/* Modal */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto}
 .modal-bg.active{display:flex}
 .modal{background:white;border-radius:16px;width:100%;max-width:750px;display:flex;flex-direction:column;margin:auto}
@@ -116,7 +117,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{outline:none;border-color:#f39c12;box-shadow:0 0 0 3px rgba(243,156,18,.15)}
 .form-field textarea{resize:vertical;min-height:60px}
 .form-field.full{grid-column:1/-1}
-.total-row{display:flex;align-items:center;justify-content:space-between;background:#2D6A2D;color:white;padding:10px 14px;border-radius:8px;font-size:15px;font-weight:700;margin-top:4px}
 .btn{padding:10px 20px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600;border:none}
 .btn-save{background:#2D6A2D;color:white}
 .btn-save:hover{background:#235223}
@@ -293,6 +293,12 @@ function renderLista(){
     const fecha=p.creadoEn?.toDate?p.creadoEn.toDate().toLocaleDateString('es-ES'):'—';
     const estado=p.estado||'pendiente';
     const imp=p.presupuestoTotal?parseFloat(p.presupuestoTotal).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'';
+    // Progreso de seguimiento
+    const seg=p.seguimiento?.estados||{};
+    const fases=['presupuesto','diseno','compras','produccion','instalacion','calidad'];
+    const completadas=fases.filter(f=>seg[f]==='completado').length;
+    const progPct=Math.round(completadas/6*100);
+    const progBar=progPct>0?`<div style="margin-top:6px;background:#eee;border-radius:4px;height:4px;overflow:hidden"><div style="width:${progPct}%;height:100%;background:${progPct===100?'#2D6A2D':'#1a3a5c'};border-radius:4px"></div></div><div style="font-size:10px;color:#888;margin-top:2px">${progPct}% completado</div>`:'';
     return `<div class="parte-card ${estado}">
       <div class="parte-head" onclick="abrirParte('${p.id}')" style="cursor:pointer">
         <span class="parte-exp">${p.expediente||'—'}</span>
@@ -300,6 +306,7 @@ function renderLista(){
           ${imp?`<span style="font-size:13px;font-weight:700;color:#1a3a5c">${imp}</span>`:''}
           <span class="badge ${estado}">${estado.replace('-',' ')}</span>
           <span class="parte-fecha">${fecha}</span>
+          <button class="btn-seg" onclick="window.location.href='seguimiento.html?id=${p.id}'">📋 Seguimiento</button>
           <button class="btn-pdf-card" onclick="abrirYExportarPDF('${p.id}')">PDF</button>
           <button class="btn-pdf-card" style="background:#e8f5e0;border-color:#a8d5a8;color:#1a5c1a" onclick="exportarExcelParte('${p.id}')">XLS</button>
           <button class="btn-del" onclick="pedirBorrar('${p.id}')">🗑</button>
@@ -313,6 +320,7 @@ function renderLista(){
         ${p.terreno?`<span>🏗 ${p.terreno}</span>`:''}
         ${p.responsable?`<span>🔧 ${p.responsable}</span>`:''}
       </div>
+      ${progBar}
     </div>`;
   }).join('');
 }
@@ -320,7 +328,6 @@ function renderLista(){
 window.setFiltro=function(f,btn){filtroActual=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderLista();};
 window.filtrar=renderLista;
 
-// Secciones editables del parte
 const SECCIONES=[
   {id:'sec-ident',titulo:'Datos del parte',campos:[
     {id:'expediente',label:'Expediente'},{id:'comercial',label:'Comercial'},
@@ -368,8 +375,6 @@ window.abrirParte=async function(id){
   renderModalBody(p, false);
   document.getElementById('modal-bg').classList.add('active');
   document.body.style.overflow='hidden';
-
-  // Cargar fotos desde subcolección si existen
   if(p.numFotos > 0 && (!p.fotos || p.fotos.length === 0)){
     try{
       const fotosSnap = await getDocs(collection(db,"partes",id,"fotos"));
@@ -404,6 +409,11 @@ function renderModalBody(p, secEditing){
         </div>
       </div>
     </div>`:'')+
+    `<div style="margin:4px 0">
+      <a href="seguimiento.html?id=${p.id}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#f0f7f0;border:1.5px solid #a8d5a8;color:#1a5c1a;padding:11px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">
+        📋 Abrir seguimiento completo del pedido →
+      </a>
+    </div>`+
     `<div class="interno-sec">
       <div class="interno-head">⚙️ Gestión interna — Presupuesto y estado</div>
       <div class="interno-body">
@@ -472,7 +482,6 @@ window.toggleSecEdit=async function(secId, parteId){
   const secEl=document.getElementById(secId);
   const esEdicion=secEl.querySelector('.edit-grid');
   if(esEdicion){
-    // Guardar cambios de esta sección
     const cambios={};
     sec.campos.forEach(c=>{
       const el=document.getElementById('edit-'+c.id);
@@ -532,8 +541,7 @@ window.guardarCambios=async function(){
     fechaPrevistaInst:document.getElementById('int-fecha-inst').value,
     precioVenta:venta,
     costeMaterial:mat, costeManoObra:mo, otrosCostes:otros,
-    costeTotal:costeTotal,
-    beneficio:beneficio,
+    costeTotal:costeTotal, beneficio:beneficio,
     margen:parseFloat(margenPct.toFixed(2)),
     presupuestoTotal:venta,
     notasInternas:document.getElementById('int-notas').value,
@@ -549,7 +557,6 @@ window.guardarCambios=async function(){
   }catch(e){showToast('Error al guardar: '+e.message,true);}
 };
 
-// Borrar
 window.pedirBorrar=function(id){borrarId=id;document.getElementById('confirm-bg').classList.add('active');};
 window.cerrarConfirm=function(){document.getElementById('confirm-bg').classList.remove('active');borrarId=null;};
 window.confirmarBorrar=async function(){
@@ -562,14 +569,12 @@ window.confirmarBorrar=async function(){
   }catch(e){showToast('Error al borrar: '+e.message,true);}
 };
 
-// PDF de un parte
 function generarPDFDatos(p){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const W=210,M=15,CW=W-M*2;
   const VERDE=[45,106,45],AZUL=[26,58,92],GRIS=[245,245,245];
   let y=M;
-
   doc.setFillColor(...AZUL);doc.rect(0,0,W,22,'F');
   doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont('helvetica','bold');
   doc.text('PARTE DE TRABAJO',M,13);
@@ -578,276 +583,59 @@ function generarPDFDatos(p){
   doc.setFontSize(9);
   doc.text('Cemerplay · '+new Date().toLocaleDateString('es-ES'),W-M,19,{align:'right'});
   doc.setTextColor(0,0,0);y=28;
-
-  function sec(t){
-    doc.setFillColor(...AZUL);doc.rect(M,y,CW,7,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
-    doc.text(t.toUpperCase(),M+3,y+5);doc.setTextColor(0,0,0);y+=9;
-  }
-  function f2(l1,v1,l2,v2){
-    if(y>270){doc.addPage();y=M;}
-    const hw=CW/2;
-    doc.setFillColor(...GRIS);doc.rect(M,y,hw/2,6,'F');if(l2)doc.rect(M+hw,y,hw/2,6,'F');
-    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);
-    doc.text(l1,M+2,y+4.2);if(l2)doc.text(l2,M+hw+2,y+4.2);
-    doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
-    doc.text(v1||'—',M+hw/2+1,y+4.2);if(l2)doc.text(v2||'—',M+hw+hw/2+1,y+4.2);
-    doc.setDrawColor(220,220,220);doc.rect(M,y,CW,6);y+=6;
-  }
-  function f1(l,v){
-    if(y>270){doc.addPage();y=M;}
-    doc.setFillColor(...GRIS);doc.rect(M,y,CW/2,6,'F');
-    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);
-    doc.text(l,M+2,y+4.2);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
-    doc.text(v||'—',M+CW/2+2,y+4.2);doc.setDrawColor(220,220,220);doc.rect(M,y,CW,6);y+=6;
-  }
-
-  sec('Identificación');
-  f2('Expediente',p.expediente,'Comercial',p.comercial);
-  f2('Firma contrato',p.fechaFirma,'Fecha ejecución',p.fechaEjec);y+=3;
-  sec('Cliente');
-  f2('Nombre',p.nombre,'Teléfono',p.telefono);
-  f1('Correo',p.correo);f1('Dirección',p.direccion);
-  f2('Población',p.poblacion,'Acceso obra',p.acceso);y+=3;
-  sec('Instalación');
-  f2('Área del juego (m²)',p.dias,'Terreno',p.terreno);
-  f2('Acceso obra',p.acceso,'Ret. juego',p.retJuego);
-  f2('Ret. caucho',p.retCaucho,'Atornillado',p.atornillado);
-  f2('Solera',p.solera,'SBR',p.sbr);
-  f2('EPDM',p.epdm,'Color',p.color);
-  f2('Grosor',p.grosor,'Material',p.material);
-  f1('Césped',p.cesped);y+=3;
-  sec('Alquiler material obra');
-  f2('Vallas',p.vallas,'Día colocación',p.diaVallas);
-  f2('Retirar vallas',p.retVallas,'Máquinas',p.maquinas);
-  f2('Transporte',p.transporte,'Cont. obra',p.contObra);
-  f1('Cont. reciclado',p.contRec);y+=3;
+  function sec(t){doc.setFillColor(...AZUL);doc.rect(M,y,CW,7,'F');doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(t.toUpperCase(),M+3,y+5);doc.setTextColor(0,0,0);y+=9;}
+  function f2(l1,v1,l2,v2){if(y>270){doc.addPage();y=M;}const hw=CW/2;doc.setFillColor(...GRIS);doc.rect(M,y,hw/2,6,'F');if(l2)doc.rect(M+hw,y,hw/2,6,'F');doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);doc.text(l1,M+2,y+4.2);if(l2)doc.text(l2,M+hw+2,y+4.2);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);doc.text(v1||'—',M+hw/2+1,y+4.2);if(l2)doc.text(v2||'—',M+hw+hw/2+1,y+4.2);doc.setDrawColor(220,220,220);doc.rect(M,y,CW,6);y+=6;}
+  function f1(l,v){if(y>270){doc.addPage();y=M;}doc.setFillColor(...GRIS);doc.rect(M,y,CW/2,6,'F');doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);doc.text(l,M+2,y+4.2);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);doc.text(v||'—',M+CW/2+2,y+4.2);doc.setDrawColor(220,220,220);doc.rect(M,y,CW,6);y+=6;}
+  sec('Identificación');f2('Expediente',p.expediente,'Comercial',p.comercial);f2('Firma contrato',p.fechaFirma,'Fecha ejecución',p.fechaEjec);y+=3;
+  sec('Cliente');f2('Nombre',p.nombre,'Teléfono',p.telefono);f1('Correo',p.correo);f1('Dirección',p.direccion);f2('Población',p.poblacion,'Acceso obra',p.acceso);y+=3;
+  sec('Instalación');f2('Área del juego (m²)',p.dias,'Terreno',p.terreno);f2('Acceso obra',p.acceso,'Ret. juego',p.retJuego);f2('Ret. caucho',p.retCaucho,'Atornillado',p.atornillado);f2('Solera',p.solera,'SBR',p.sbr);f2('EPDM',p.epdm,'Color',p.color);f2('Grosor',p.grosor,'Material',p.material);f1('Césped',p.cesped);y+=3;
+  sec('Alquiler material obra');f2('Vallas',p.vallas,'Día colocación',p.diaVallas);f2('Retirar vallas',p.retVallas,'Máquinas',p.maquinas);f2('Transporte',p.transporte,'Cont. obra',p.contObra);f1('Cont. reciclado',p.contRec);y+=3;
   if(p.address||p.lat){sec('Ubicación');f1('Dirección GPS',p.address);y+=3;}
-  if(p.obs){
-    sec('Observaciones');
-    doc.setFillColor(...GRIS);
-    const lines=doc.splitTextToSize(p.obs,CW-6);
-    const h=Math.max(10,lines.length*5+4);
-    doc.rect(M,y,CW,h,'F');doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
-    doc.text(lines,M+3,y+5);y+=h+3;
-  }
-
-  // Fotos guardadas en Firebase
-  if(p.fotos&&p.fotos.length>0){
-    doc.addPage();y=M;
-    sec('Fotografías ('+p.fotos.length+')');y+=3;
-    const fotoW=(CW-8)/2, fotoH=70;
-    for(let i=0;i<p.fotos.length;i++){
-      const col=i%2;
-      const fx=M+col*(fotoW+8);
-      if(col===0&&i>0)y+=fotoH+8;
-      if(y+fotoH>285){doc.addPage();y=M;}
-      try{
-        doc.addImage(p.fotos[i],'JPEG',fx,y,fotoW,fotoH,'','MEDIUM');
-        doc.setDrawColor(...VERDE);doc.rect(fx,y,fotoW,fotoH);
-        doc.setFontSize(8);doc.setTextColor(100,100,100);
-        doc.text('Foto '+(i+1),fx+2,y+fotoH-2);
-      }catch(e){}
-    }
-  }
-
-  // Gestión interna
-  if(p.estado||p.presupuestoTotal){
-    doc.addPage();y=M;
-    doc.setFillColor(...VERDE);doc.rect(0,0,W,12,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(12);doc.setFont('helvetica','bold');
-    doc.text('GESTIÓN INTERNA',M,8.5);doc.setTextColor(0,0,0);y=18;
-    f2('Estado',p.estado,'Responsable',p.responsable);
-    f2('Días producción',String(p.diasProduccion||'—'),'Días instalación',String(p.diasInstalacion||'—'));
-    f2('Fecha prevista inst.',p.fechaPrevistaInst||'—','','');y+=3;
-    f2('Precio de venta',p.precioVenta?p.precioVenta.toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—','Coste total',p.costeTotal?p.costeTotal.toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—');
-    f2('Coste material',p.costeMaterial?p.costeMaterial+'€':'—','Coste M.O.',p.costeManoObra?p.costeManoObra+'€':'—');
-    f2('Otros costes',p.otrosCostes?p.otrosCostes+'€':'—','% Margen beneficio',p.margen?p.margen.toFixed(1)+'%':'—');
-    doc.setFillColor(...VERDE);doc.rect(M,y,CW,8,'F');
-    doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');
-    const tot=p.precioVenta?parseFloat(p.precioVenta).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';
-    const ben=p.beneficio?parseFloat(p.beneficio).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';
-    doc.text('PRECIO VENTA: '+tot+'   BENEFICIO: '+ben,M+3,y+5.5);
-    doc.setTextColor(0,0,0);y+=12;
-    if(p.notasInternas){
-      f1('Notas internas',p.notasInternas);
-    }
-  }
+  if(p.obs){sec('Observaciones');doc.setFillColor(...GRIS);const lines=doc.splitTextToSize(p.obs,CW-6);const h=Math.max(10,lines.length*5+4);doc.rect(M,y,CW,h,'F');doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);doc.text(lines,M+3,y+5);y+=h+3;}
+  if(p.fotos&&p.fotos.length>0){doc.addPage();y=M;sec('Fotografías ('+p.fotos.length+')');y+=3;const fotoW=(CW-8)/2,fotoH=70;for(let i=0;i<p.fotos.length;i++){const col=i%2;const fx=M+col*(fotoW+8);if(col===0&&i>0)y+=fotoH+8;if(y+fotoH>285){doc.addPage();y=M;}try{doc.addImage(p.fotos[i],'JPEG',fx,y,fotoW,fotoH,'','MEDIUM');doc.setDrawColor(...VERDE);doc.rect(fx,y,fotoW,fotoH);doc.setFontSize(8);doc.setTextColor(100,100,100);doc.text('Foto '+(i+1),fx+2,y+fotoH-2);}catch(e){}}}
+  if(p.estado||p.presupuestoTotal){doc.addPage();y=M;doc.setFillColor(...VERDE);doc.rect(0,0,W,12,'F');doc.setTextColor(255,255,255);doc.setFontSize(12);doc.setFont('helvetica','bold');doc.text('GESTIÓN INTERNA',M,8.5);doc.setTextColor(0,0,0);y=18;f2('Estado',p.estado,'Responsable',p.responsable);f2('Días producción',String(p.diasProduccion||'—'),'Días instalación',String(p.diasInstalacion||'—'));f2('Fecha prevista inst.',p.fechaPrevistaInst||'—','','');y+=3;f2('Precio de venta',p.precioVenta?p.precioVenta.toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—','Coste total',p.costeTotal?p.costeTotal.toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—');f2('Coste material',p.costeMaterial?p.costeMaterial+'€':'—','Coste M.O.',p.costeManoObra?p.costeManoObra+'€':'—');f2('Otros costes',p.otrosCostes?p.otrosCostes+'€':'—','% Margen beneficio',p.margen?p.margen.toFixed(1)+'%':'—');doc.setFillColor(...VERDE);doc.rect(M,y,CW,8,'F');doc.setTextColor(255,255,255);doc.setFontSize(11);doc.setFont('helvetica','bold');const tot=p.precioVenta?parseFloat(p.precioVenta).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';const ben=p.beneficio?parseFloat(p.beneficio).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'0.00€';doc.text('PRECIO VENTA: '+tot+'   BENEFICIO: '+ben,M+3,y+5.5);doc.setTextColor(0,0,0);y+=12;if(p.notasInternas){f1('Notas internas',p.notasInternas);}}
   return doc;
 }
 
-window.exportarPDFParte=function(){
-  if(!parteActual)return;
-  const doc=generarPDFDatos(parteActual);
-  doc.save('Parte_'+parteActual.expediente+'.pdf');
-  showToast('PDF generado');
-};
+window.exportarPDFParte=function(){if(!parteActual)return;const doc=generarPDFDatos(parteActual);doc.save('Parte_'+parteActual.expediente+'.pdf');showToast('PDF generado');};
+window.imprimirParte=function(){if(!parteActual)return;const doc=generarPDFDatos(parteActual);const blob=doc.output('blob');const url=URL.createObjectURL(blob);const w=window.open(url);if(w)w.onload=()=>{w.print();};};
+window.abrirYExportarPDF=function(id){const p=todosPartes.find(x=>x.id===id);if(!p)return;const doc=generarPDFDatos(p);doc.save('Parte_'+p.expediente+'.pdf');showToast('PDF de '+p.expediente+' generado');};
 
-window.imprimirParte=function(){
-  if(!parteActual)return;
-  const doc=generarPDFDatos(parteActual);
-  const blob=doc.output('blob');
-  const url=URL.createObjectURL(blob);
-  const w=window.open(url);
-  if(w)w.onload=()=>{w.print();};
-};
-
-window.abrirYExportarPDF=function(id){
-  const p=todosPartes.find(x=>x.id===id);if(!p)return;
-  const doc=generarPDFDatos(p);
-  doc.save('Parte_'+p.expediente+'.pdf');
-  showToast('PDF de '+p.expediente+' generado');
-};
-
-// Exportar Excel de UN parte individual
 window.exportarExcelParte=function(id){
   const p=todosPartes.find(x=>x.id===id); if(!p)return;
-  const datos=[{
-    'Expediente':p.expediente||'',
-    'Comercial':p.comercial||'',
-    'Estado':p.estado||'',
-    'Fecha firma':p.fechaFirma||'',
-    'Fecha ejecución':p.fechaEjec||'',
-    'Cliente':p.nombre||'',
-    'Teléfono':p.telefono||'',
-    'Correo':p.correo||'',
-    'Dirección':p.direccion||'',
-    'Población':p.poblacion||'',
-    'Área juego (m²)':p.dias||'',
-    'Terreno':p.terreno||'',
-    'Acceso obra':p.acceso||'',
-    'Ret. juego':p.retJuego||'',
-    'Ret. caucho':p.retCaucho||'',
-    'Atornillado':p.atornillado||'',
-    'Solera':p.solera||'',
-    'SBR':p.sbr||'','EPDM':p.epdm||'',
-    'Color':p.color||'','Grosor':p.grosor||'',
-    'Material':p.material||'','Césped':p.cesped||'',
-    'Vallas':p.vallas||'',
-    'Día colocación vallas':p.diaVallas||'',
-    'Retirar vallas':p.retVallas||'',
-    'Alquiler máquinas':p.maquinas||'',
-    'Transporte':p.transporte||'',
-    'Contenedor obra':p.contObra||'',
-    'Contenedor reciclado':p.contRec||'',
-    'Observaciones':p.obs||'',
-    'Dirección GPS':p.address||'',
-    'Responsable':p.responsable||'',
-    'Días producción':p.diasProduccion||'',
-    'Días instalación':p.diasInstalacion||'',
-    'Fecha prevista inst.':p.fechaPrevistaInst||'',
-    'Precio de venta (€)':p.precioVenta||0,
-    'Coste material (€)':p.costeMaterial||0,
-    'Coste M.O. (€)':p.costeManoObra||0,
-    'Otros costes (€)':p.otrosCostes||0,
-    'Coste total (€)':p.costeTotal||0,
-    'Beneficio (€)':p.beneficio||0,
-    '% Margen beneficio':p.margen?p.margen.toFixed(1)+'%':'',
-    'Notas internas':p.notasInternas||'',
-  }];
-  const ws=XLSX.utils.json_to_sheet(datos);
-  ws['!cols']=Object.keys(datos[0]).map(k=>({wch:Math.max(k.length+2,16)}));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,'Parte',ws);
-  XLSX.writeFile(wb,'Parte_'+p.expediente+'.xlsx');
-  showToast('Excel de '+p.expediente+' exportado');
+  const datos=[{'Expediente':p.expediente||'','Comercial':p.comercial||'','Estado':p.estado||'','Fecha firma':p.fechaFirma||'','Fecha ejecución':p.fechaEjec||'','Cliente':p.nombre||'','Teléfono':p.telefono||'','Correo':p.correo||'','Dirección':p.direccion||'','Población':p.poblacion||'','Área juego (m²)':p.dias||'','Terreno':p.terreno||'','Acceso obra':p.acceso||'','Ret. juego':p.retJuego||'','Ret. caucho':p.retCaucho||'','Atornillado':p.atornillado||'','Solera':p.solera||'','SBR':p.sbr||'','EPDM':p.epdm||'','Color':p.color||'','Grosor':p.grosor||'','Material':p.material||'','Césped':p.cesped||'','Vallas':p.vallas||'','Día colocación vallas':p.diaVallas||'','Retirar vallas':p.retVallas||'','Alquiler máquinas':p.maquinas||'','Transporte':p.transporte||'','Contenedor obra':p.contObra||'','Contenedor reciclado':p.contRec||'','Observaciones':p.obs||'','Dirección GPS':p.address||'','Responsable':p.responsable||'','Días producción':p.diasProduccion||'','Días instalación':p.diasInstalacion||'','Fecha prevista inst.':p.fechaPrevistaInst||'','Precio de venta (€)':p.precioVenta||0,'Coste material (€)':p.costeMaterial||0,'Coste M.O. (€)':p.costeManoObra||0,'Otros costes (€)':p.otrosCostes||0,'Coste total (€)':p.costeTotal||0,'Beneficio (€)':p.beneficio||0,'% Margen beneficio':p.margen?p.margen.toFixed(1)+'%':'','Notas internas':p.notasInternas||''}];
+  const ws=XLSX.utils.json_to_sheet(datos);ws['!cols']=Object.keys(datos[0]).map(k=>({wch:Math.max(k.length+2,16)}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,'Parte',ws);XLSX.writeFile(wb,'Parte_'+p.expediente+'.xlsx');showToast('Excel de '+p.expediente+' exportado');
 };
 
-// Exportar Excel TODOS los partes
 window.exportarExcel=function(){
-  const datos=todosPartes.map(p=>({
-    'Expediente':p.expediente||'',
-    'Comercial':p.comercial||'',
-    'Estado':p.estado||'',
-    'Cliente':p.nombre||'',
-    'Teléfono':p.telefono||'',
-    'Correo':p.correo||'',
-    'Dirección':p.direccion||'',
-    'Población':p.poblacion||'',
-    'Acceso obra':p.acceso||'',
-    'Área juego (m²)':p.dias||'',
-    'Terreno':p.terreno||'',
-    'Ret. juego':p.retJuego||'',
-    'Ret. caucho':p.retCaucho||'',
-    'Atornillado':p.atornillado||'',
-    'Solera':p.solera||'',
-    'SBR':p.sbr||'','EPDM':p.epdm||'',
-    'Color':p.color||'','Grosor':p.grosor||'',
-    'Dados':p.dados||'','Material':p.material||'',
-    'Vallas':p.vallas||'',
-    'Responsable':p.responsable||'',
-    'Días producción':p.diasProduccion||'',
-    'Días instalación':p.diasInstalacion||'',
-    'Fecha prevista inst.':p.fechaPrevistaInst||'',
-    'Precio de venta (€)':p.precioVenta||0,
-    'Coste material':p.costeMaterial||0,
-    'Coste M.O.':p.costeManoObra||0,
-    'Otros costes':p.otrosCostes||0,
-    'Coste total':p.costeTotal||0,
-    'Beneficio (€)':p.beneficio||0,
-    '% Margen':p.margen?p.margen.toFixed(1)+'%':'',
-    'Notas internas':p.notasInternas||'',
-    'Observaciones':p.obs||'',
-    'Dirección GPS':p.address||'',
-    'Fecha creación':p.creadoEn?.toDate?p.creadoEn.toDate().toLocaleDateString('es-ES'):'',
-  }));
-  const ws=XLSX.utils.json_to_sheet(datos);
-  // Ancho columnas
-  ws['!cols']=Object.keys(datos[0]||{}).map(k=>({wch:Math.max(k.length+2,14)}));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,'Partes',ws);
-  XLSX.writeFile(wb,'Cemerplay_Partes_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  showToast('Excel exportado correctamente');
+  const datos=todosPartes.map(p=>({'Expediente':p.expediente||'','Comercial':p.comercial||'','Estado':p.estado||'','Cliente':p.nombre||'','Teléfono':p.telefono||'','Correo':p.correo||'','Dirección':p.direccion||'','Población':p.poblacion||'','Acceso obra':p.acceso||'','Área juego (m²)':p.dias||'','Terreno':p.terreno||'','Ret. juego':p.retJuego||'','Ret. caucho':p.retCaucho||'','Atornillado':p.atornillado||'','Solera':p.solera||'','SBR':p.sbr||'','EPDM':p.epdm||'','Color':p.color||'','Grosor':p.grosor||'','Material':p.material||'','Vallas':p.vallas||'','Responsable':p.responsable||'','Días producción':p.diasProduccion||'','Días instalación':p.diasInstalacion||'','Fecha prevista inst.':p.fechaPrevistaInst||'','Precio de venta (€)':p.precioVenta||0,'Coste material':p.costeMaterial||0,'Coste M.O.':p.costeManoObra||0,'Otros costes':p.otrosCostes||0,'Coste total':p.costeTotal||0,'Beneficio (€)':p.beneficio||0,'% Margen':p.margen?p.margen.toFixed(1)+'%':'','Notas internas':p.notasInternas||'','Observaciones':p.obs||'','Dirección GPS':p.address||'','Fecha creación':p.creadoEn?.toDate?p.creadoEn.toDate().toLocaleDateString('es-ES'):''}));
+  const ws=XLSX.utils.json_to_sheet(datos);ws['!cols']=Object.keys(datos[0]||{}).map(k=>({wch:Math.max(k.length+2,14)}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,'Partes',ws);XLSX.writeFile(wb,'Cemerplay_Partes_'+new Date().toISOString().slice(0,10)+'.xlsx');showToast('Excel exportado correctamente');
 };
 
-function showToast(msg,error=false){
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.className='toast'+(error?' error':'');t.style.display='block';
-  clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000);
-}
+function showToast(msg,error=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(error?' error':'');t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3000);}
 
-// ===== INTEGRACIÓN HOLDED =====
 const HOLDED_API_KEY = '607fb6450063dd2e03c879f70912bb46';
 let presupuestosHolded = [];
 let presupuestoSeleccionado = null;
 
-window.abrirHolded = function(){
-  document.getElementById('holded-modal').classList.add('active');
-  document.body.style.overflow='hidden';
-  cargarPresupuestosHolded();
-};
-window.cerrarHolded = function(){
-  document.getElementById('holded-modal').classList.remove('active');
-  document.body.style.overflow='';
-  presupuestoSeleccionado=null;
-  document.getElementById('btn-importar').disabled=true;
-};
+window.abrirHolded = function(){document.getElementById('holded-modal').classList.add('active');document.body.style.overflow='hidden';cargarPresupuestosHolded();};
+window.cerrarHolded = function(){document.getElementById('holded-modal').classList.remove('active');document.body.style.overflow='';presupuestoSeleccionado=null;document.getElementById('btn-importar').disabled=true;};
 
 window.cargarPresupuestosHolded = async function(){
   const lista=document.getElementById('holded-lista');
   const err=document.getElementById('holded-err');
-  err.style.display='none';
-  lista.innerHTML='<div class="holded-loading">Cargando presupuestos…</div>';
-  presupuestosHolded=[];
-  presupuestoSeleccionado=null;
-  document.getElementById('btn-importar').disabled=true;
-
+  err.style.display='none';lista.innerHTML='<div class="holded-loading">Cargando presupuestos…</div>';
+  presupuestosHolded=[];presupuestoSeleccionado=null;document.getElementById('btn-importar').disabled=true;
   try{
-    // Llamar a nuestra propia función serverless en Vercel (sin problemas de CORS)
     const resp = await fetch('/api/holded?tipo=estimate');
-    if(!resp.ok){
-      const err = await resp.text();
-      throw new Error('Error '+resp.status+': '+err);
-    }
+    if(!resp.ok){const e=await resp.text();throw new Error('Error '+resp.status+': '+e);}
     const data = await resp.json();
-    presupuestosHolded = (Array.isArray(data) ? data : (data.list||data.data||[]));
+    presupuestosHolded=(Array.isArray(data)?data:(data.list||data.data||[]));
     presupuestosHolded.sort((a,b)=>(b.date||0)-(a.date||0));
     renderPresupuestos(presupuestosHolded);
   }catch(e){
     err.textContent='No se pudo conectar con Holded. Comprueba la API key o inténtalo de nuevo.';
-    err.style.display='block';
-    lista.innerHTML='';
-    console.error('Holded error:',e);
+    err.style.display='block';lista.innerHTML='';console.error('Holded error:',e);
   }
 };
 
@@ -862,91 +650,34 @@ function renderPresupuestos(lista){
     const num=p.docNumber||p.number||p.id?.slice(-6)||'—';
     return `<div class="presup-item" id="pi-${p.id}" onclick="seleccionarPresupuesto('${p.id}')">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-        <div>
-          <div class="presup-num">Nº ${num}</div>
-          <div class="presup-cliente">${cliente}</div>
-          <div class="presup-meta">
-            <span>📅 ${fecha}</span>
-            <span>${estado}</span>
-          </div>
-        </div>
+        <div><div class="presup-num">Nº ${num}</div><div class="presup-cliente">${cliente}</div><div class="presup-meta"><span>📅 ${fecha}</span><span>${estado}</span></div></div>
         <div class="presup-importe">${importe}</div>
       </div>
     </div>`;
   }).join('');
 }
 
-window.filtrarPresupuestos = function(){
-  const q=document.getElementById('holded-buscar').value.toLowerCase();
-  if(!q){renderPresupuestos(presupuestosHolded);return;}
-  const filtrados=presupuestosHolded.filter(p=>{
-    const c=(p.contactName||p.contact?.name||'').toLowerCase();
-    const n=String(p.docNumber||p.number||'').toLowerCase();
-    return c.includes(q)||n.includes(q);
-  });
-  renderPresupuestos(filtrados);
-};
-
-window.seleccionarPresupuesto = function(id){
-  document.querySelectorAll('.presup-item').forEach(el=>el.classList.remove('selected'));
-  const el=document.getElementById('pi-'+id);
-  if(el) el.classList.add('selected');
-  presupuestoSeleccionado=presupuestosHolded.find(p=>p.id===id);
-  document.getElementById('btn-importar').disabled=!presupuestoSeleccionado;
-};
+window.filtrarPresupuestos=function(){const q=document.getElementById('holded-buscar').value.toLowerCase();if(!q){renderPresupuestos(presupuestosHolded);return;}renderPresupuestos(presupuestosHolded.filter(p=>(p.contactName||p.contact?.name||'').toLowerCase().includes(q)||String(p.docNumber||p.number||'').toLowerCase().includes(q)));};
+window.seleccionarPresupuesto=function(id){document.querySelectorAll('.presup-item').forEach(el=>el.classList.remove('selected'));const el=document.getElementById('pi-'+id);if(el)el.classList.add('selected');presupuestoSeleccionado=presupuestosHolded.find(p=>p.id===id);document.getElementById('btn-importar').disabled=!presupuestoSeleccionado;};
 
 window.importarSeleccionado = async function(){
   if(!presupuestoSeleccionado) return;
   const p=presupuestoSeleccionado;
-
-  // Extraer datos del presupuesto de Holded
   const cliente=p.contactName||p.contact?.name||'';
   const total=p.total||0;
-  const fecha=p.date?new Date(p.date*1000).toISOString().slice(0,10):'';
   const num=p.docNumber||p.number||p.id;
-
-  // Extraer descripción/observaciones de las líneas
-  const lineas=(p.items||p.products||p.lines||[]).map(l=>
-    `${l.name||l.desc||''}: ${l.units||l.qty||1} ud × ${l.price||l.subtotal||0}€`
-  ).join('\n');
-
-  // Calcular número de expediente correlativo
+  const lineas=(p.items||p.products||p.lines||[]).map(l=>`${l.name||l.desc||''}: ${l.units||l.qty||1} ud × ${l.price||l.subtotal||0}€`).join('\n');
   const snap2=await getDocs(collection(db,'partes'));
   let maxNum2=0;
-  snap2.docs.forEach(d=>{
-    const exp=d.data().expediente||'';
-    const m=exp.match(/ES-(\d+)/);
-    if(m) maxNum2=Math.max(maxNum2,parseInt(m[1]));
-  });
+  snap2.docs.forEach(d=>{const exp=d.data().expediente||'';const m=exp.match(/ES-(\d+)/);if(m)maxNum2=Math.max(maxNum2,parseInt(m[1]));});
   const nuevoNum2=maxNum2+1;
   const nuevoExp2='ES-'+String(nuevoNum2).padStart(4,'0');
-
-  // Crear parte en Firebase
   try{
-    await addDoc(collection(db,'partes'),{
-      expediente: nuevoExp2,
-      nombre: cliente,
-      telefono: p.contact?.phone||'',
-      correo: p.contact?.email||'',
-      direccion: p.contact?.address||'',
-      poblacion: p.contact?.city||'',
-      obs: `Importado de Holded — Presupuesto Nº${num}\n\n${lineas}`,
-      precioVenta: total,
-      presupuestoTotal: total,
-      estado: 'presupuestado',
-      creadoEn: serverTimestamp(),
-      origenHolded: true,
-      holdedId: p.id,
-      holdedNum: String(num),
-      numFotos: 0,
-    });
-    localStorage.setItem('cemerplay_counter', String(nuevoNum2));
-    cerrarHolded();
-    await cargarPartes();
+    await addDoc(collection(db,'partes'),{expediente:nuevoExp2,nombre:cliente,telefono:p.contact?.phone||'',correo:p.contact?.email||'',direccion:p.contact?.address||'',poblacion:p.contact?.city||'',obs:`Importado de Holded — Presupuesto Nº${num}\n\n${lineas}`,precioVenta:total,presupuestoTotal:total,estado:'presupuestado',creadoEn:serverTimestamp(),origenHolded:true,holdedId:p.id,holdedNum:String(num),numFotos:0});
+    localStorage.setItem('cemerplay_counter',String(nuevoNum2));
+    cerrarHolded();await cargarPartes();
     showToast('✅ Presupuesto '+num+' importado como '+nuevoExp2);
-  }catch(e){
-    showToast('Error al importar: '+e.message, true);
-  }
+  }catch(e){showToast('Error al importar: '+e.message,true);}
 };
 
 cargarPartes();
