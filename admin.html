@@ -166,10 +166,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="filters">
     <input class="search" id="search" placeholder="Buscar por cliente, expediente…" oninput="filtrar()">
     <button class="filter-btn active" onclick="setFiltro('todos',this)">Todos</button>
-    <button class="filter-btn" onclick="setFiltro('pendiente',this)">Pendiente</button>
-    <button class="filter-btn" onclick="setFiltro('en-proceso',this)">En proceso</button>
     <button class="filter-btn" onclick="setFiltro('presupuestado',this)">Presupuestado</button>
+    <button class="filter-btn" onclick="setFiltro('pendiente',this)">Pendiente</button>
     <button class="filter-btn" onclick="setFiltro('aprobado',this)">Aprobado</button>
+    <button class="filter-btn" onclick="setFiltro('en-proceso',this)">En proceso</button>
     <button class="filter-btn" onclick="setFiltro('ejecutado',this)">Ejecutado</button>
   </div>
   <div class="partes-grid" id="lista"><div class="loading">Conectando con la base de datos…</div></div>
