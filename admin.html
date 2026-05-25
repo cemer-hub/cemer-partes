@@ -543,7 +543,21 @@ window.generarParteTrabajoCompleto=async function(){
   sec('2. Diseño',MORADO);
   f2('Diseñador',dis.disenador||'—','Fecha límite',dis.fechaLimite||'—');f2('Aprobación cliente',dis.aprobacion||'—','Fecha aprobación',dis.fechaAprobacion||'—');
   if(dis.descripcion)f1('Descripción',dis.descripcion);if(dis.comentarios)f1('Comentarios cliente',dis.comentarios);y+=3;
-  if(dis.render){sec('Render del proyecto',MORADO);try{const rH=80;if(y+rH>280){doc3.addPage();y=M;}doc3.addImage(dis.render,'JPEG',M,y,CW,rH,'','MEDIUM');doc3.setDrawColor(...MORADO);doc3.rect(M,y,CW,rH);y+=rH+5;}catch(e){}}
+  if(dis.render){
+    const renders=Array.isArray(dis.render)?dis.render:[dis.render];
+    sec('Renders del proyecto',MORADO);
+    for(let ri=0;ri<renders.length;ri++){
+      try{
+        const rH=75;
+        if(y+rH>280){doc3.addPage();y=M;}
+        doc3.addImage(renders[ri],'JPEG',M,y,CW,rH,'','MEDIUM');
+        doc3.setDrawColor(...MORADO);doc3.rect(M,y,CW,rH);
+        doc3.setFontSize(8);doc3.setTextColor(120,120,120);
+        doc3.text('Render '+(ri+1),M+2,y+rH-2);
+        y+=rH+4;
+      }catch(e){}
+    }
+  }
   sec('3. Producción',[100,80,20]);
   f2('Días producción',String(p.diasProduccion||prod.dias||'—'),'','');y+=2;
   doc3.setFillColor(96,125,139);doc3.rect(M,y,CW,6,'F');doc3.setTextColor(255,255,255);doc3.setFontSize(9);doc3.setFont('helvetica','bold');doc3.text('LÍNEA METAL',M+3,y+4.2);doc3.setTextColor(0,0,0);y+=8;
