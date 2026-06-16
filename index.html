@@ -590,43 +590,58 @@ async function generarYEnviar(){
       const img=new Image();
       img.onload=()=>{
         try{
+          // Reducir más agresivamente
           const ratio=Math.min(maxW/img.width, maxH/img.height, 1);
           const c=document.createElement('canvas');
           c.width=Math.round(img.width*ratio)||maxW;
           c.height=Math.round(img.height*ratio)||maxH;
           c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-          const result=c.toDataURL('image/jpeg',calidad);
-          // Si el resultado es válido, devolverlo; si no, devolver el original
-          resolve(result&&result.length>200?result:base64);
-        }catch(e){resolve(base64);}
+          let result=c.toDataURL('image/jpeg',calidad);
+          // Si sigue siendo muy grande, reducir más
+          if(result.length > 150000){
+            c.width=Math.round(c.width*0.6);
+            c.height=Math.round(c.height*0.6);
+            c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+            result=c.toDataURL('image/jpeg',0.3);
+          }
+          console.log(`Foto comprimida: ${Math.round(result.length/1024)}KB`);
+          resolve(result&&result.length>100?result:null);
+        }catch(e){console.error('Error comprimiendo foto:',e);resolve(null);}
       };
-      img.onerror=()=>resolve(base64);
+      img.onerror=()=>{console.error('Error cargando imagen');resolve(null);};
       img.src=base64;
     });
   }
 
-  // Solo procesar fotos que existen, manteniendo orden
   const fotosConIndice = photos
     .map((f,i)=>({foto:f, idx:i}))
     .filter(x=>x.foto);
 
+  console.log(`Fotos a procesar: ${fotosConIndice.length}`);
+
   const fotosParaCorreo = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 500, 375, 0.65))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 500, 375, 0.55))
   );
   const fotosParaFirebase = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 400, 300, 0.5))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 300, 225, 0.35))
   );
+
+  const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f.length/1024),0);
+  console.log(`Total fotos Firebase: ${Math.round(totalKB)}KB`);
 
   // ---- GUARDAR EN FIREBASE ----
   setProgress(82,'Guardando en la nube…');
   try {
     if(window._guardarEnFirebase){
+      const fotosValidas = fotosParaFirebase.filter(Boolean);
+      console.log(`Guardando ${fotosValidas.length} fotos en Firebase`);
       await window._guardarEnFirebase({
         ...datos,
-        fotos: fotosParaFirebase  // array ya filtrado, índices 0,1,2...
+        fotos: fotosValidas
       });
+      console.log('Firebase guardado OK');
     }
-  } catch(e){ console.warn('Firebase no disponible:', e); }
+  } catch(e){ console.error('Firebase error:', e); showToast('Error guardando fotos: '+e.message, true); }
 
   // ---- ENVIAR CORREO ----
   setProgress(90,'Enviando correo…');
