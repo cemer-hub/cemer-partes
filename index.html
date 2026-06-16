@@ -49,24 +49,23 @@
       // Separar fotos del resto
       const { fotos, ...datosSinFotos } = datos;
 
+      // Construir objeto con fotos como campos individuales foto_0, foto_1...
+      const fotosObj = {};
+      if(fotos && fotos.length > 0){
+        fotos.forEach((f, i) => {
+          if(f) fotosObj['foto_'+i] = f;
+        });
+      }
+
+      // Guardar todo en un solo documento
       const docRef = await addDoc(collection(db, "partes"), {
         ...datosSinFotos,
+        ...fotosObj,
         expediente: nuevoExp,
         estado: "pendiente",
-        numFotos: fotos ? fotos.length : 0,
+        numFotos: fotos ? fotos.filter(Boolean).length : 0,
         creadoEn: serverTimestamp()
       });
-
-      // Guardar cada foto en subcolección
-      if(fotos && fotos.length > 0){
-        for(let i = 0; i < fotos.length; i++){
-          if(!fotos[i]) continue;
-          await setDoc(doc(db, "partes", docRef.id, "fotos", String(i)), {
-            index: i,
-            data: fotos[i]
-          });
-        }
-      }
 
       return docRef.id;
     } catch(e) {
