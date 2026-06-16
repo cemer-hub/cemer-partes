@@ -617,7 +617,8 @@ async function generarYEnviar(){
     .map((f,i)=>({foto:f, idx:i}))
     .filter(x=>x.foto);
 
-  console.log(`Fotos a procesar: ${fotosConIndice.length}`);
+  showToast(`📷 ${fotosConIndice.length} foto(s) detectadas`);
+  await new Promise(r=>setTimeout(r,500));
 
   const fotosParaCorreo = await Promise.all(
     fotosConIndice.map(x=>comprimirFoto(x.foto, 500, 375, 0.55))
@@ -626,22 +627,27 @@ async function generarYEnviar(){
     fotosConIndice.map(x=>comprimirFoto(x.foto, 300, 225, 0.35))
   );
 
-  const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f.length/1024),0);
-  console.log(`Total fotos Firebase: ${Math.round(totalKB)}KB`);
+  const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f?f.length/1024:0),0);
+  showToast(`💾 ${Math.round(totalKB)}KB a guardar`);
 
   // ---- GUARDAR EN FIREBASE ----
   setProgress(82,'Guardando en la nube…');
   try {
     if(window._guardarEnFirebase){
       const fotosValidas = fotosParaFirebase.filter(Boolean);
-      console.log(`Guardando ${fotosValidas.length} fotos en Firebase`);
+      showToast(`🔥 Guardando ${fotosValidas.length} foto(s)…`);
       await window._guardarEnFirebase({
         ...datos,
         fotos: fotosValidas
       });
-      console.log('Firebase guardado OK');
+      showToast('✓ Firebase OK');
+    } else {
+      showToast('⚠ Firebase no disponible', true);
     }
-  } catch(e){ console.error('Firebase error:', e); showToast('Error guardando fotos: '+e.message, true); }
+  } catch(e){
+    showToast('❌ Error Firebase: '+e.message, true);
+    console.error('Firebase error:', e);
+  }
 
   // ---- ENVIAR CORREO ----
   setProgress(90,'Enviando correo…');
