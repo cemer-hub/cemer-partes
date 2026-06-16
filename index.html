@@ -29,7 +29,6 @@
 
   window._guardarEnFirebase = async function(datos) {
     try {
-      // Obtener número correlativo
       const snap = await getDocs(collection(db, "partes"));
       let maxNum = 0;
       snap.docs.forEach(d => {
@@ -47,10 +46,9 @@
       if(pillEl) pillEl.textContent = nuevoExp;
       localStorage.setItem('cemerplay_counter', String(nuevoNum));
 
-      // Separar fotos del resto de datos
+      // Separar fotos del resto
       const { fotos, ...datosSinFotos } = datos;
 
-      // Guardar documento principal SIN fotos
       const docRef = await addDoc(collection(db, "partes"), {
         ...datosSinFotos,
         expediente: nuevoExp,
@@ -59,9 +57,10 @@
         creadoEn: serverTimestamp()
       });
 
-      // Guardar cada foto en subcolección separada
+      // Guardar cada foto en subcolección
       if(fotos && fotos.length > 0){
         for(let i = 0; i < fotos.length; i++){
+          if(!fotos[i]) continue;
           await setDoc(doc(db, "partes", docRef.id, "fotos", String(i)), {
             index: i,
             data: fotos[i]
@@ -256,7 +255,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="btn-pri" id="btn-enviar" onclick="prepEnvio()">Generar PDF y Enviar ✉</button>
 </div>
 
-<!-- OVERLAY: Confirmar nuevo parte -->
 <div class="overlay" id="ov-confirm">
   <div class="sheet confirm-sheet">
     <div class="sheet-header">
@@ -273,7 +271,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- OVERLAY: Vista previa y envío -->
 <div class="overlay" id="ov-preview">
   <div class="sheet">
     <div class="sheet-header">
@@ -281,7 +278,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="sheet-close" onclick="closeOverlay('ov-preview')">×</button>
     </div>
     <div class="sheet-body">
-      <div class="pdf-note">📄 Se generará un PDF con todos los datos y las fotografías, y se enviará automáticamente a <strong>comercial@cemerplay.com</strong> y <strong>gerente@cemerplay.com</strong>. El parte quedará guardado para edición interna.</div>
+      <div class="pdf-note">📄 Se generará un PDF con todos los datos y las fotografías, y se enviará automáticamente a <strong>comercial@cemerplay.com</strong> y <strong>gerente@cemerplay.com</strong>.</div>
       <div id="preview-content"></div>
       <div class="progress-wrap" id="progress-wrap">
         <div class="progress-label" id="progress-label">Generando PDF…</div>
@@ -311,7 +308,6 @@ function saveCounter(n){ localStorage.setItem('cemerplay_counter', String(n)); }
 let parteNum = getCounter();
 if(parteNum === 0){ parteNum = 1; saveCounter(1); }
 
-// Fotos
 const pgrid = document.getElementById('pgrid');
 for(let i=0;i<N;i++){
   const s=document.createElement('div');
@@ -348,7 +344,6 @@ function rmP(e,i){
   document.getElementById('fi'+i).value='';
 }
 
-// GPS
 function getLocation(){
   const btn=document.getElementById('loc-btn');
   btn.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg> Detectando…';
@@ -396,8 +391,7 @@ function pedirNuevoParte(){
 }
 function ejecutarNuevo(){
   closeOverlay('ov-confirm');
-  parteNum++;
-  saveCounter(parteNum);
+  parteNum++; saveCounter(parteNum);
   resetForm();
   const exp=fmtExp(parteNum);
   document.getElementById('expediente').value=exp;
@@ -476,8 +470,7 @@ function recogerDatos(){
     fechaFirma:gv('fecha-firma'), fechaEjec:gv('fecha-ejec'),
     nombre:gv('nombre'), telefono:gv('telefono'), correo:gv('correo'),
     direccion:gv('direccion'), poblacion:gv('poblacion'),
-    dias:gv('dias'), terreno:gv('terreno'),
-    acceso:gv('acceso'),
+    dias:gv('dias'), terreno:gv('terreno'), acceso:gv('acceso'),
     retJuego:gv('ret-juego'), retCaucho:gv('ret-caucho'),
     atornillado:gv('atornillado'), solera:gv('solera'),
     sbr:gv('sbr'), epdm:gv('epdm'), color:gv('color'), grosor:gv('grosor'),
@@ -485,8 +478,7 @@ function recogerDatos(){
     vallas:gv('vallas'), diaVallas:gv('dia-vallas'), retVallas:gv('ret-vallas'),
     maquinas:gv('maquinas'), transporte:gv('transporte'),
     contObra:gv('cont-obra'), contRec:gv('cont-rec'),
-    obs:gv('obs'),
-    lat:gv('lat'), lng:gv('lng'), address:gv('address'),
+    obs:gv('obs'), lat:gv('lat'), lng:gv('lng'), address:gv('address'),
     numFotos: photos.filter(Boolean).length
   };
 }
@@ -502,52 +494,37 @@ async function generarYEnviar(){
   const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const W=210, margin=15, colW=W-margin*2;
   let y=margin;
-
-  const VERDE=[45,106,45], GRIS=[245,245,245], VERDE_CLAR=[234,245,234];
+  const VERDE=[45,106,45], GRIS=[245,245,245];
 
   function seccion(titulo){
-    doc.setFillColor(...VERDE);
-    doc.rect(margin,y,colW,7,'F');
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(9);doc.setFont('helvetica','bold');
-    doc.text(titulo.toUpperCase(),margin+3,y+5);
-    doc.setTextColor(0,0,0);y+=9;
+    doc.setFillColor(...VERDE);doc.rect(margin,y,colW,7,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text(titulo.toUpperCase(),margin+3,y+5);doc.setTextColor(0,0,0);y+=9;
   }
   function campo2(l1,v1,l2,v2){
     if(y>270){doc.addPage();y=margin;}
     const hw=colW/2;
-    doc.setFillColor(...GRIS);
-    doc.rect(margin,y,hw/2,6,'F');
-    doc.rect(margin+hw,y,hw/2,6,'F');
+    doc.setFillColor(...GRIS);doc.rect(margin,y,hw/2,6,'F');doc.rect(margin+hw,y,hw/2,6,'F');
     doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);
-    doc.text(l1,margin+2,y+4.2);
-    if(l2)doc.text(l2,margin+hw+2,y+4.2);
+    doc.text(l1,margin+2,y+4.2);if(l2)doc.text(l2,margin+hw+2,y+4.2);
     doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
-    doc.text(v1||'—',margin+hw/2+1,y+4.2);
-    if(l2)doc.text(v2||'—',margin+hw+hw/2+1,y+4.2);
-    doc.setDrawColor(220,220,220);doc.rect(margin,y,colW,6);
-    y+=6;
+    doc.text(v1||'—',margin+hw/2+1,y+4.2);if(l2)doc.text(v2||'—',margin+hw+hw/2+1,y+4.2);
+    doc.setDrawColor(220,220,220);doc.rect(margin,y,colW,6);y+=6;
   }
   function campo(l,v){
     if(y>270){doc.addPage();y=margin;}
     doc.setFillColor(...GRIS);doc.rect(margin,y,colW/2,6,'F');
     doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(80,80,80);
-    doc.text(l,margin+2,y+4.2);
-    doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
-    doc.text(v||'—',margin+colW/2+2,y+4.2);
-    doc.setDrawColor(220,220,220);doc.rect(margin,y,colW,6);
-    y+=6;
+    doc.text(l,margin+2,y+4.2);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
+    doc.text(v||'—',margin+colW/2+2,y+4.2);doc.setDrawColor(220,220,220);doc.rect(margin,y,colW,6);y+=6;
   }
 
-  // Cabecera
   doc.setFillColor(...VERDE);doc.rect(0,0,W,22,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.setTextColor(255,255,255);doc.setFontSize(18);doc.setFont('helvetica','bold');
   doc.text('PARTE DE TRABAJO',margin,13);
   doc.setFontSize(11);doc.setFont('helvetica','normal');
   doc.text(datos.expediente,W-margin,13,{align:'right'});
-  doc.setFontSize(9);
-  doc.text('Cemerplay · '+new Date().toLocaleDateString('es-ES'),W-margin,19,{align:'right'});
+  doc.setFontSize(9);doc.text('Cemerplay · '+new Date().toLocaleDateString('es-ES'),W-margin,19,{align:'right'});
   doc.setTextColor(0,0,0);y=28;
 
   setProgress(15,'Añadiendo datos…');
@@ -556,8 +533,7 @@ async function generarYEnviar(){
   campo2('Firma contrato',datos.fechaFirma,'Fecha ejecución',datos.fechaEjec);y+=3;
   seccion('Datos del cliente');
   campo2('Nombre cliente',datos.nombre,'Teléfono',datos.telefono);
-  campo('Correo electrónico',datos.correo);
-  campo('Dirección obra',datos.direccion);
+  campo('Correo electrónico',datos.correo);campo('Dirección obra',datos.direccion);
   campo('Población',datos.poblacion);y+=3;
   seccion('Datos de la instalación');
   campo2('Área del juego',datos.dias,'Estado terreno',datos.terreno);
@@ -574,26 +550,25 @@ async function generarYEnviar(){
   campo('Contenedor reciclado',datos.contRec);y+=3;
   seccion('Ubicación GPS');
   campo('Dirección detectada',datos.address);
-  const mapUrl=datos.lat&&datos.lng?'maps.google.com/?q='+datos.lat+','+datos.lng:'—';
-  campo('Google Maps',mapUrl);y+=3;
+  campo('Google Maps',datos.lat&&datos.lng?'maps.google.com/?q='+datos.lat+','+datos.lng:'—');y+=3;
   if(datos.obs){
     seccion('Observaciones');
     doc.setFillColor(...GRIS);
     const lines=doc.splitTextToSize(datos.obs,colW-6);
     const h=Math.max(10,lines.length*5+4);
-    doc.rect(margin,y,colW,h,'F');
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
+    doc.rect(margin,y,colW,h,'F');doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(0,0,0);
     doc.text(lines,margin+3,y+5);y+=h+3;
   }
 
-  setProgress(40,'Insertando fotografías…');
-  const fotosValidas=photos.filter(Boolean);
+  // ---- FOTOS EN EL PDF ----
+  setProgress(35,'Insertando fotografías en PDF…');
+  const fotosValidas = photos.filter(Boolean);
   if(fotosValidas.length>0){
     doc.addPage();y=margin;
     seccion('Fotografías ('+fotosValidas.length+')');y+=3;
     const fotoW=(colW-8)/2, fotoH=65;
     for(let i=0;i<fotosValidas.length;i++){
-      setProgress(40+Math.round((i/fotosValidas.length)*45),`Procesando foto ${i+1} de ${fotosValidas.length}…`);
+      setProgress(35+Math.round((i/fotosValidas.length)*30),`Foto ${i+1} de ${fotosValidas.length}…`);
       const col=i%2;
       const fx=margin+col*(fotoW+8);
       if(col===0&&i>0)y+=fotoH+8;
@@ -603,72 +578,72 @@ async function generarYEnviar(){
         doc.setDrawColor(...VERDE);doc.rect(fx,y,fotoW,fotoH);
         doc.setFontSize(8);doc.setTextColor(100,100,100);
         doc.text('Foto '+(i+1),fx+2,y+fotoH-2);
-      }catch(e){}
-      await new Promise(r=>setTimeout(r,50));
+      }catch(e){console.warn('Error foto PDF',i,e);}
+      await new Promise(r=>setTimeout(r,30));
     }
   }
 
-  setProgress(75,'Comprimiendo fotografías…');
+  // ---- COMPRIMIR FOTOS ----
+  setProgress(70,'Comprimiendo fotografías…');
 
-  // Comprimir fotos agresivamente para Firestore (max 400x300, calidad 0.4)
-  async function comprimirFoto(base64, maxW=400, maxH=300, calidad=0.4){
+  async function comprimirFoto(base64, maxW, maxH, calidad){
     return new Promise(resolve=>{
       const img=new Image();
       img.onload=()=>{
-        const ratio=Math.min(maxW/img.width, maxH/img.height, 1);
-        const c=document.createElement('canvas');
-        c.width=Math.round(img.width*ratio);
-        c.height=Math.round(img.height*ratio);
-        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-        resolve(c.toDataURL('image/jpeg', calidad));
+        try{
+          const ratio=Math.min(maxW/img.width, maxH/img.height, 1);
+          const c=document.createElement('canvas');
+          c.width=Math.round(img.width*ratio)||maxW;
+          c.height=Math.round(img.height*ratio)||maxH;
+          c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+          const result=c.toDataURL('image/jpeg',calidad);
+          // Si el resultado es válido, devolverlo; si no, devolver el original
+          resolve(result&&result.length>200?result:base64);
+        }catch(e){resolve(base64);}
       };
-      img.onerror=()=>resolve(null);
+      img.onerror=()=>resolve(base64);
       img.src=base64;
     });
   }
 
-  // Comprimir fotos para el correo (un poco más de calidad)
-  async function comprimirFotoCorreo(base64){
-    return comprimirFoto(base64, 500, 375, 0.6);
-  }
+  // Solo procesar fotos que existen, manteniendo orden
+  const fotosConIndice = photos
+    .map((f,i)=>({foto:f, idx:i}))
+    .filter(x=>x.foto);
 
   const fotosParaCorreo = await Promise.all(
-    photos.map(f => f ? comprimirFotoCorreo(f) : Promise.resolve(null))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 500, 375, 0.65))
   );
   const fotosParaFirebase = await Promise.all(
-    photos.map(f => f ? comprimirFoto(f) : Promise.resolve(null))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 400, 300, 0.5))
   );
 
-  setProgress(80,'Guardando en la nube…');
-
-  // Guardar en Firebase: datos en documento principal, fotos en subcolección
-  let firebaseId = null;
+  // ---- GUARDAR EN FIREBASE ----
+  setProgress(82,'Guardando en la nube…');
   try {
     if(window._guardarEnFirebase){
-      firebaseId = await window._guardarEnFirebase({
+      await window._guardarEnFirebase({
         ...datos,
-        fotos: fotosParaFirebase.filter(Boolean)
+        fotos: fotosParaFirebase  // array ya filtrado, índices 0,1,2...
       });
     }
   } catch(e){ console.warn('Firebase no disponible:', e); }
 
+  // ---- ENVIAR CORREO ----
   setProgress(90,'Enviando correo…');
 
-  // Fotos para el correo
   const fotosHtml = fotosParaCorreo.map((foto, i) => {
     if(!foto) return '';
     return `<div style="margin:8px 0;text-align:center">
-      <p style="font-size:11px;color:#888;margin:0 0 4px">Fotografía ${i+1}</p>
+      <p style="font-size:11px;color:#888;margin:0 0 4px">Fotografía ${fotosConIndice[i].idx+1}</p>
       <img src="${foto}" style="max-width:100%;border-radius:6px;border:1px solid #ddd">
     </div>`;
   });
   const fotosBloque = fotosHtml.filter(Boolean).join('');
 
   const adminUrl = 'https://cemer-partes.vercel.app/admin.html';
-  const tr = (label, valor, alt=false) =>
-    `<tr${alt?' style="background:#fafafa"':''}><td style="padding:5px 8px;color:#666;width:42%">${label}</td><td style="padding:5px 8px;font-weight:600;color:#111">${valor||'—'}</td></tr>`;
-  const sec = (titulo) =>
-    `<tr><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase;background:#eaf5ea;letter-spacing:.5px">${titulo}</td></tr>`;
+  const tr=(label,valor,alt=false)=>`<tr${alt?' style="background:#fafafa"':''}><td style="padding:5px 8px;color:#666;width:42%">${label}</td><td style="padding:5px 8px;font-weight:600;color:#111">${valor||'—'}</td></tr>`;
+  const sec=(titulo)=>`<tr><td colspan="2" style="padding:6px 8px;font-weight:700;color:#2D6A2D;font-size:11px;text-transform:uppercase;background:#eaf5ea;letter-spacing:.5px">${titulo}</td></tr>`;
 
   const htmlCorreo=`<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222">
   <div style="background:#2D6A2D;padding:18px 22px;border-radius:10px 10px 0 0">
@@ -676,61 +651,36 @@ async function generarYEnviar(){
     <p style="color:rgba(255,255,255,.8);margin:5px 0 0;font-size:13px">Cemerplay · ${new Date().toLocaleDateString('es-ES')} · Comercial: ${datos.comercial||'—'}</p>
   </div>
   <div style="border:1px solid #ddd;border-top:none;padding:18px 22px;border-radius:0 0 10px 10px">
-
-    <a href="${adminUrl}" style="display:inline-block;background:#2D6A2D;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:18px">→ Abrir panel interno para editar</a>
-
+    <a href="${adminUrl}" style="display:inline-block;background:#2D6A2D;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin-bottom:18px">→ Abrir panel interno</a>
     <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
       ${sec('Identificación')}
-      ${tr('N Expediente', datos.expediente)}
-      ${tr('Comercial', datos.comercial, true)}
-      ${tr('Fecha firma contrato', datos.fechaFirma)}
-      ${tr('Fecha de ejecución', datos.fechaEjec, true)}
-
-      ${sec('Datos del cliente')}
-      ${tr('Nombre', datos.nombre)}
-      ${tr('Teléfono', datos.telefono, true)}
-      ${tr('Correo', datos.correo)}
-      ${tr('Dirección', datos.direccion, true)}
-      ${tr('Población', datos.poblacion)}
-
-      ${sec('Datos de la instalación')}
-      ${tr('Área del juego', datos.dias ? datos.dias+' m²' : '—')}
-      ${tr('Estado del terreno', datos.terreno, true)}
-      ${tr('Acceso obra', datos.acceso)}
-      ${tr('Ret. juego existente', datos.retJuego, true)}
-      ${tr('Ret. caucho existente', datos.retCaucho)}
-      ${tr('Atornillado', datos.atornillado, true)}
-      ${tr('Solera', datos.solera)}
-      ${tr('SBR (kg/m²)', datos.sbr, true)}
-      ${tr('EPDM (kg/m²)', datos.epdm)}
-      ${tr('Color', datos.color, true)}
-      ${tr('Grosor (cm)', datos.grosor)}
-      ${tr('Comprar material', datos.material, true)}
-      ${tr('Césped', datos.cesped)}
-
-      ${sec('Alquiler material obra')}
-      ${tr('Vallas obra', datos.vallas)}
-      ${tr('Día colocación', datos.diaVallas, true)}
-      ${tr('Retirar vallas', datos.retVallas)}
-      ${tr('Alquiler máquinas', datos.maquinas, true)}
-      ${tr('Transporte', datos.transporte)}
-      ${tr('Contenedor obra', datos.contObra, true)}
-      ${tr('Contenedor reciclado', datos.contRec)}
-
-      ${datos.lat&&datos.lng ? `${sec('Ubicación GPS')}${tr('Dirección', datos.address)}
-      <tr><td style="padding:5px 8px;color:#666">Google Maps</td><td style="padding:5px 8px"><a href="https://maps.google.com/?q=${datos.lat},${datos.lng}" style="color:#2D6A2D;font-weight:600">Ver en mapa →</a></td></tr>` : ''}
-
-      ${datos.obs ? `${sec('Observaciones')}<tr><td colspan="2" style="padding:8px">${datos.obs}</td></tr>` : ''}
+      ${tr('N Expediente',datos.expediente)}${tr('Comercial',datos.comercial,true)}
+      ${tr('Fecha firma',datos.fechaFirma)}${tr('Fecha ejecución',datos.fechaEjec,true)}
+      ${sec('Cliente')}
+      ${tr('Nombre',datos.nombre)}${tr('Teléfono',datos.telefono,true)}
+      ${tr('Correo',datos.correo)}${tr('Dirección',datos.direccion,true)}
+      ${tr('Población',datos.poblacion)}
+      ${sec('Instalación')}
+      ${tr('Área del juego',datos.dias?datos.dias+' m²':'—')}${tr('Terreno',datos.terreno,true)}
+      ${tr('Acceso obra',datos.acceso)}${tr('Ret. juego',datos.retJuego,true)}
+      ${tr('Ret. caucho',datos.retCaucho)}${tr('Atornillado',datos.atornillado,true)}
+      ${tr('Solera',datos.solera)}${tr('SBR',datos.sbr,true)}
+      ${tr('EPDM',datos.epdm)}${tr('Color',datos.color,true)}
+      ${tr('Grosor',datos.grosor)}${tr('Material',datos.material,true)}
+      ${tr('Césped',datos.cesped)}
+      ${sec('Alquiler')}
+      ${tr('Vallas',datos.vallas)}${tr('Día colocación',datos.diaVallas,true)}
+      ${tr('Retirar vallas',datos.retVallas)}${tr('Máquinas',datos.maquinas,true)}
+      ${tr('Transporte',datos.transporte)}${tr('Cont. obra',datos.contObra,true)}
+      ${tr('Cont. reciclado',datos.contRec)}
+      ${datos.lat&&datos.lng?`${sec('Ubicación GPS')}${tr('Dirección',datos.address)}<tr><td style="padding:5px 8px;color:#666">Google Maps</td><td style="padding:5px 8px"><a href="https://maps.google.com/?q=${datos.lat},${datos.lng}" style="color:#2D6A2D;font-weight:600">Ver en mapa →</a></td></tr>`:''}
+      ${datos.obs?`${sec('Observaciones')}<tr><td colspan="2" style="padding:8px">${datos.obs}</td></tr>`:''}
     </table>
-
-    ${fotosBloque ? `<div style="border-top:1px solid #eee;padding-top:14px;margin-top:4px">
-      <p style="font-size:12px;font-weight:700;color:#2D6A2D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Fotografías (${fotosHtml.filter(Boolean).length})</p>
+    ${fotosBloque?`<div style="border-top:1px solid #eee;padding-top:14px">
+      <p style="font-size:12px;font-weight:700;color:#2D6A2D;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Fotografías (${fotosConIndice.length})</p>
       ${fotosBloque}
-    </div>` : ''}
-
-    <p style="color:#aaa;font-size:11px;margin-top:16px;border-top:1px solid #eee;padding-top:12px">
-      Parte generado automáticamente · Cemerplay
-    </p>
+    </div>`:''}
+    <p style="color:#aaa;font-size:11px;margin-top:16px;border-top:1px solid #eee;padding-top:12px">Parte generado automáticamente · Cemerplay</p>
   </div>
 </div>`;
 
