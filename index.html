@@ -71,7 +71,7 @@
             try{
               const mini = await new Promise(res=>{
                 const img=new Image();
-                img.onload=()=>{const c=document.createElement('canvas');c.width=200;c.height=150;c.getContext('2d').drawImage(img,0,0,200,150);res(c.toDataURL('image/jpeg',0.2));};
+                img.onload=()=>{const c=document.createElement('canvas');c.width=500;c.height=375;c.getContext('2d').drawImage(img,0,0,500,375);res(c.toDataURL('image/jpeg',0.6));};
                 img.onerror=()=>res(null);img.src=fotos[i];
               });
               if(mini) await setDoc(doc(db,"partes",docRef.id,"fotos",String(i)),{index:i,data:mini});
@@ -634,10 +634,10 @@ async function generarYEnviar(){
   await new Promise(r=>setTimeout(r,500));
 
   const fotosParaCorreo = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 500, 375, 0.55))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 900, 675, 0.8))
   );
   const fotosParaFirebase = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 300, 225, 0.35))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 800, 600, 0.75))
   );
 
   const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f?f.length/1024:0),0);
