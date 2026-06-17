@@ -67,15 +67,8 @@
               data: fotos[i]
             });
           }catch(fotoErr){
-            // Si falla por tamaño, intentar con calidad mínima
-            try{
-              const mini = await new Promise(res=>{
-                const img=new Image();
-                img.onload=()=>{const c=document.createElement('canvas');c.width=500;c.height=375;c.getContext('2d').drawImage(img,0,0,500,375);res(c.toDataURL('image/jpeg',0.6));};
-                img.onerror=()=>res(null);img.src=fotos[i];
-              });
-              if(mini) await setDoc(doc(db,"partes",docRef.id,"fotos",String(i)),{index:i,data:mini});
-            }catch(e2){ console.error('Foto '+i+' no guardada:', e2.message); }
+            showToast('❌ Error foto '+i+': '+fotoErr.message, true);
+            console.error('Error foto '+i+':', fotoErr);
           }
         }
       }
@@ -626,14 +619,16 @@ async function generarYEnviar(){
   showToast(`📷 ${fotosConIndice.length} foto(s) detectadas`);
   await new Promise(r=>setTimeout(r,300));
 
-  // Para el correo: comprimir un poco para no saturar email
+  // Comprimir para correo (calidad visual buena)
   const fotosParaCorreo = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 1000, 750, 0.85))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 1000, 750, 0.82))
   );
-  // Para Firebase: pasar originales sin comprimir (van en subcolección separada, sin límite 1MB)
-  const fotosParaFirebase = fotosConIndice.map(x=>x.foto);
+  // Comprimir para Firebase: cada foto ~80-120KB para caber en subcolección
+  const fotosParaFirebase = await Promise.all(
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 800, 600, 0.7))
+  );
 
-  const totalKB = fotosParaFirebase.reduce((s,f)=>s+(f?f.length/1024:0),0);
+  const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f?f.length/1024:0),0);
   showToast(`💾 ${Math.round(totalKB)}KB a guardar`);
 
   // ---- GUARDAR EN FIREBASE ----
