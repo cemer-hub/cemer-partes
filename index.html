@@ -67,7 +67,7 @@
               data: fotos[i]
             });
           }catch(fotoErr){
-            showToast('❌ Error foto '+i+': '+fotoErr.message, true);
+            showToast('❌ Foto '+i+': '+fotoErr.code+' '+fotoErr.message, true); await new Promise(r=>setTimeout(r,4000));
             console.error('Error foto '+i+':', fotoErr);
           }
         }
@@ -637,16 +637,18 @@ async function generarYEnviar(){
     if(window._guardarEnFirebase){
       const fotosValidas = fotosParaFirebase.filter(Boolean);
       showToast(`🔥 Guardando ${fotosValidas.length} foto(s)…`);
+      await new Promise(r=>setTimeout(r,1500));
       await window._guardarEnFirebase({
         ...datos,
         fotos: fotosValidas
       });
+      await new Promise(r=>setTimeout(r,500));
       showToast('✓ Firebase OK');
     } else {
       showToast('⚠ Firebase no disponible', true);
     }
   } catch(e){
-    showToast('❌ Error Firebase: '+e.message, true);
+    showToast('❌ Error: '+e.message, true);
     console.error('Firebase error:', e);
   }
 
