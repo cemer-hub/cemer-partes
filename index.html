@@ -610,13 +610,6 @@ async function generarYEnviar(){
           c.height=Math.round(img.height*ratio)||maxH;
           c.getContext('2d').drawImage(img,0,0,c.width,c.height);
           let result=c.toDataURL('image/jpeg',calidad);
-          // Si sigue siendo muy grande, reducir más
-          if(result.length > 150000){
-            c.width=Math.round(c.width*0.6);
-            c.height=Math.round(c.height*0.6);
-            c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-            result=c.toDataURL('image/jpeg',0.3);
-          }
           console.log(`Foto comprimida: ${Math.round(result.length/1024)}KB`);
           resolve(result&&result.length>100?result:null);
         }catch(e){console.error('Error comprimiendo foto:',e);resolve(null);}
@@ -634,10 +627,10 @@ async function generarYEnviar(){
   await new Promise(r=>setTimeout(r,500));
 
   const fotosParaCorreo = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 900, 675, 0.8))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 1200, 900, 0.92))
   );
   const fotosParaFirebase = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 800, 600, 0.75))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 1200, 900, 0.9))
   );
 
   const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f?f.length/1024:0),0);
