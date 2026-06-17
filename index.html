@@ -624,16 +624,16 @@ async function generarYEnviar(){
     .filter(x=>x.foto);
 
   showToast(`📷 ${fotosConIndice.length} foto(s) detectadas`);
-  await new Promise(r=>setTimeout(r,500));
+  await new Promise(r=>setTimeout(r,300));
 
+  // Para el correo: comprimir un poco para no saturar email
   const fotosParaCorreo = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 1200, 900, 0.92))
+    fotosConIndice.map(x=>comprimirFoto(x.foto, 1000, 750, 0.85))
   );
-  const fotosParaFirebase = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 1200, 900, 0.9))
-  );
+  // Para Firebase: pasar originales sin comprimir (van en subcolección separada, sin límite 1MB)
+  const fotosParaFirebase = fotosConIndice.map(x=>x.foto);
 
-  const totalKB = fotosParaFirebase.filter(Boolean).reduce((s,f)=>s+(f?f.length/1024:0),0);
+  const totalKB = fotosParaFirebase.reduce((s,f)=>s+(f?f.length/1024:0),0);
   showToast(`💾 ${Math.round(totalKB)}KB a guardar`);
 
   // ---- GUARDAR EN FIREBASE ----
