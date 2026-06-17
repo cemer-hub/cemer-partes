@@ -619,10 +619,8 @@ async function generarYEnviar(){
   showToast(`📷 ${fotosConIndice.length} foto(s) detectadas`);
   await new Promise(r=>setTimeout(r,300));
 
-  // Comprimir para correo (calidad visual buena)
-  const fotosParaCorreo = await Promise.all(
-    fotosConIndice.map(x=>comprimirFoto(x.foto, 1000, 750, 0.82))
-  );
+  // Fotos para correo: no se usan (límite 50KB EmailJS)
+  // Las fotos van a Firebase con buena calidad para verlas en el panel
   // Comprimir para Firebase: cada foto ~80-120KB para caber en subcolección
   const fotosParaFirebase = await Promise.all(
     fotosConIndice.map(x=>comprimirFoto(x.foto, 800, 600, 0.7))
@@ -655,14 +653,14 @@ async function generarYEnviar(){
   // ---- ENVIAR CORREO ----
   setProgress(90,'Enviando correo…');
 
-  const fotosHtml = fotosParaCorreo.map((foto, i) => {
-    if(!foto) return '';
-    return `<div style="margin:8px 0;text-align:center">
-      <p style="font-size:11px;color:#888;margin:0 0 4px">Fotografía ${fotosConIndice[i].idx+1}</p>
-      <img src="${foto}" style="max-width:100%;border-radius:6px;border:1px solid #ddd">
-    </div>`;
-  });
-  const fotosBloque = fotosHtml.filter(Boolean).join('');
+  // Las fotos NO van en el correo (límite 50KB EmailJS)
+  // Se acceden desde el panel admin con el enlace incluido en el email
+  const fotosBloque = fotosConIndice.length > 0
+    ? `<div style="background:#eaf5ea;border-radius:8px;padding:12px 16px;margin-top:8px">
+        <p style="margin:0;font-size:13px;color:#1a5c1a;font-weight:600">📷 ${fotosConIndice.length} fotografía(s) adjunta(s)</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#555">Ver las fotografías en el panel interno →</p>
+       </div>`
+    : '';
 
   const adminUrl = 'https://cemer-partes.vercel.app/admin.html';
   const tr=(label,valor,alt=false)=>`<tr${alt?' style="background:#fafafa"':''}><td style="padding:5px 8px;color:#666;width:42%">${label}</td><td style="padding:5px 8px;font-weight:600;color:#111">${valor||'—'}</td></tr>`;
