@@ -46,26 +46,39 @@
       if(pillEl) pillEl.textContent = nuevoExp;
       localStorage.setItem('cemerplay_counter', String(nuevoNum));
 
-      // Separar fotos del resto
       const { fotos, ...datosSinFotos } = datos;
 
-      // Construir objeto con fotos como campos individuales foto_0, foto_1...
-      const fotosObj = {};
-      if(fotos && fotos.length > 0){
-        fotos.forEach((f, i) => {
-          if(f) fotosObj['foto_'+i] = f;
-        });
-      }
-
-      // Guardar todo en un solo documento
+      // Guardar documento principal SIN fotos (evita límite 1MB de Firestore)
       const docRef = await addDoc(collection(db, "partes"), {
         ...datosSinFotos,
-        ...fotosObj,
         expediente: nuevoExp,
         estado: "pendiente",
         numFotos: fotos ? fotos.filter(Boolean).length : 0,
         creadoEn: serverTimestamp()
       });
+
+      // Guardar cada foto en subcolección separada
+      if(fotos && fotos.length > 0){
+        for(let i = 0; i < fotos.length; i++){
+          if(!fotos[i]) continue;
+          try{
+            await setDoc(doc(db, "partes", docRef.id, "fotos", String(i)), {
+              index: i,
+              data: fotos[i]
+            });
+          }catch(fotoErr){
+            // Si falla por tamaño, intentar con calidad mínima
+            try{
+              const mini = await new Promise(res=>{
+                const img=new Image();
+                img.onload=()=>{const c=document.createElement('canvas');c.width=200;c.height=150;c.getContext('2d').drawImage(img,0,0,200,150);res(c.toDataURL('image/jpeg',0.2));};
+                img.onerror=()=>res(null);img.src=fotos[i];
+              });
+              if(mini) await setDoc(doc(db,"partes",docRef.id,"fotos",String(i)),{index:i,data:mini});
+            }catch(e2){ console.error('Foto '+i+' no guardada:', e2.message); }
+          }
+        }
+      }
 
       return docRef.id;
     } catch(e) {
