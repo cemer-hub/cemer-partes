@@ -313,26 +313,33 @@ function renderSeccion(sec,p,editando){
   return `<div class="sec" id="${sec.id}"><div class="sec-head">${sec.titulo}<button class="btn-edit-sec" onclick="toggleSecEdit('${sec.id}','${p.id}')">${editando?'✓ Listo':'✏ Editar'}</button></div><div class="sec-body"><div class="${gridClass}">${campos}</div></div></div>`;
 }
 
+// *** ÚNICO CAMBIO: lee fotos del nuevo sistema (foto_0, foto_1...) con fallback al antiguo ***
 window.abrirParte=async function(id){
   const p=todosPartes.find(x=>x.id===id);if(!p)return;
   parteActual={...p};docIdActual=id;
   document.getElementById('modal-title').textContent='Parte '+p.expediente;
+
+  if(p.numFotos>0&&(!p.fotos||p.fotos.length===0)){
+    // Nuevo sistema: campos foto_0, foto_1... directamente en el documento
+    const fotosNuevas=[];
+    for(let i=0;i<8;i++){if(p['foto_'+i])fotosNuevas.push(p['foto_'+i]);}
+    if(fotosNuevas.length>0){
+      parteActual={...p,fotos:fotosNuevas};
+    } else {
+      // Sistema antiguo: subcolección fotos (compatibilidad con partes anteriores)
+      try{
+        const fotosSnap=await getDocs(collection(db,"partes",id,"fotos"));
+        const fotos=[];
+        fotosSnap.docs.forEach(d=>fotos[d.data().index]=d.data().data);
+        const fv=fotos.filter(Boolean);
+        if(fv.length>0)parteActual={...p,fotos:fv};
+      }catch(e){}
+    }
+  }
+
   renderModalBody(parteActual,false);
   document.getElementById('modal-bg').classList.add('active');
   document.body.style.overflow='hidden';
-
-  if(p.numFotos>0&&(!p.fotos||p.fotos.length===0)){
-    try{
-      const fotosSnap=await getDocs(collection(db,"partes",id,"fotos"));
-      const fotos=[];
-      fotosSnap.docs.forEach(d=>fotos[d.data().index]=d.data().data);
-      const fv=fotos.filter(Boolean);
-      if(fv.length>0){
-        parteActual={...p,fotos:fv};
-        renderModalBody(parteActual,false);
-      }
-    }catch(e){console.warn('No se pudieron cargar fotos:',e);}
-  }
 };
 
 function renderModalBody(p,secEditing){
