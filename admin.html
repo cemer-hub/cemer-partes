@@ -132,8 +132,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-danger{flex:1;padding:11px;border:none;border-radius:8px;background:#c0392b;color:white;font-size:14px;cursor:pointer;font-weight:700}
 .toast{position:fixed;bottom:24px;right:24px;background:#2D6A2D;color:white;padding:10px 20px;border-radius:24px;font-size:14px;font-weight:500;display:none;z-index:999;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .toast.error{background:#c0392b}
-@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.dato-grid,.form-row,.edit-grid{grid-template-columns:1fr}.form-row3{grid-template-columns:1fr 1fr}}
-@media print{.header,.filters,.stats,.actions,.modal-footer,.modal-header-actions,.btn-edit-sec,.card-actions{display:none!important}.modal-bg{position:static;overflow:visible;background:none;padding:0}.modal{box-shadow:none;border-radius:0;max-width:100%}body{background:white}}
+@media(max-width:600px){
+  .stats{grid-template-columns:1fr 1fr}
+  .dato-grid,.form-row,.edit-grid{grid-template-columns:1fr}
+  .form-row3{grid-template-columns:1fr 1fr}
+}
+@media print{
+  .header,.filters,.stats,.actions,.modal-footer,.modal-header-actions,.btn-edit-sec,.card-actions{display:none!important}
+  .modal-bg{position:static;overflow:visible;background:none;padding:0}
+  .modal{box-shadow:none;border-radius:0;max-width:100%}
+  body{background:white}
+}
 </style>
 </head>
 <body>
@@ -315,32 +324,19 @@ function renderSeccion(sec,p,editando){
 
 window.abrirParte=async function(id){
   const p=todosPartes.find(x=>x.id===id);if(!p)return;
-  parteActual={...p};docIdActual=id;
+  parteActual=p;docIdActual=id;
   document.getElementById('modal-title').textContent='Parte '+p.expediente;
-  renderModalBody(parteActual,false);
+  renderModalBody(p,false);
   document.getElementById('modal-bg').classList.add('active');
   document.body.style.overflow='hidden';
-
   if(p.numFotos>0&&(!p.fotos||p.fotos.length===0)){
-    // 1) Subcolección (sistema actual y anterior)
     try{
       const fotosSnap=await getDocs(collection(db,"partes",id,"fotos"));
       const fotos=[];
       fotosSnap.docs.forEach(d=>fotos[d.data().index]=d.data().data);
-      const fv=fotos.filter(Boolean);
-      if(fv.length>0){
-        parteActual={...p,fotos:fv};
-        renderModalBody(parteActual,false);
-        return;
-      }
-    }catch(e){}
-    // 2) Campos foto_0, foto_1... (sistema intermedio)
-    const fotosNuevas=[];
-    for(let i=0;i<8;i++){if(p['foto_'+i])fotosNuevas.push(p['foto_'+i]);}
-    if(fotosNuevas.length>0){
-      parteActual={...p,fotos:fotosNuevas};
+      parteActual={...p,fotos:fotos.filter(Boolean)};
       renderModalBody(parteActual,false);
-    }
+    }catch(e){console.warn('No se pudieron cargar fotos:',e);}
   }
 };
 
@@ -348,14 +344,40 @@ function renderModalBody(p,secEditing){
   const mapLink=p.lat&&p.lng?`<a href="https://maps.google.com/?q=${p.lat},${p.lng}" target="_blank" style="color:#1a3a5c">Ver en mapa</a>`:'—';
   document.getElementById('modal-body').innerHTML=
     SECCIONES.map(s=>renderSeccion(s,p,s.id===secEditing)).join('')+
-    `<div class="sec"><div class="sec-head">Ubicación</div><div class="sec-body"><div class="dato-grid"><div class="dato"><span>Dirección GPS</span><strong>${p.address||'—'}</strong></div><div class="dato"><span>Mapa</span><strong>${mapLink}</strong></div></div></div></div>`+
-    `<div class="sec" id="sec-obs"><div class="sec-head">Observaciones<button class="btn-edit-sec" onclick="toggleObsEdit('${p.id}')">✏ Editar</button></div><div class="sec-body" id="obs-body"><div class="dato"><strong>${p.obs||'—'}</strong></div></div></div>`+
+    `<div class="sec">
+      <div class="sec-head">Ubicación</div>
+      <div class="sec-body"><div class="dato-grid">
+        <div class="dato"><span>Dirección GPS</span><strong>${p.address||'—'}</strong></div>
+        <div class="dato"><span>Mapa</span><strong>${mapLink}</strong></div>
+      </div></div>
+    </div>`+
+    `<div class="sec" id="sec-obs">
+      <div class="sec-head">Observaciones
+        <button class="btn-edit-sec" onclick="toggleObsEdit('${p.id}')">✏ Editar</button>
+      </div>
+      <div class="sec-body" id="obs-body">
+        <div class="dato"><strong>${p.obs||'—'}</strong></div>
+      </div>
+    </div>`+
     (p.fotos&&p.fotos.length?`<div class="sec"><div class="sec-head">Fotografías (${p.fotos.length})</div><div class="sec-body"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">${p.fotos.map((f,i)=>`<div style="text-align:center"><img src="${f}" style="width:100%;border-radius:8px;border:1px solid #ddd;cursor:pointer" onclick="window.open('${f}','_blank')"><p style="font-size:11px;color:#888;margin-top:4px">Foto ${i+1}</p></div>`).join('')}</div></div></div>`:'')+
     `<div style="margin:4px 0"><a href="seguimiento.html?id=${p.id}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#f0f7f0;border:1.5px solid #a8d5a8;color:#1a5c1a;padding:11px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">📋 Abrir seguimiento completo del pedido →</a></div>`+
-    `<div class="interno-sec"><div class="interno-head">⚙️ Gestión interna — Presupuesto y estado</div><div class="interno-body">
+    `<div class="interno-sec">
+      <div class="interno-head">⚙️ Gestión interna — Presupuesto y estado</div>
+      <div class="interno-body">
         <div class="form-row">
-          <div class="form-field"><label>Estado del parte</label><select id="int-estado"><option value="pendiente" ${p.estado==='pendiente'?'selected':''}>⏳ Pendiente</option><option value="en-proceso" ${p.estado==='en-proceso'?'selected':''}>🔄 En proceso</option><option value="presupuestado" ${p.estado==='presupuestado'?'selected':''}>📋 Presupuestado</option><option value="aprobado" ${p.estado==='aprobado'?'selected':''}>✅ Aprobado</option><option value="ejecutado" ${p.estado==='ejecutado'?'selected':''}>🏁 Ejecutado</option><option value="cancelado" ${p.estado==='cancelado'?'selected':''}>❌ Cancelado</option></select></div>
-          <div class="form-field"><label>Responsable interno</label><input type="text" id="int-responsable" value="${p.responsable||''}" placeholder="Quién gestiona este parte"></div>
+          <div class="form-field"><label>Estado del parte</label>
+            <select id="int-estado">
+              <option value="pendiente" ${p.estado==='pendiente'?'selected':''}>⏳ Pendiente</option>
+              <option value="en-proceso" ${p.estado==='en-proceso'?'selected':''}>🔄 En proceso</option>
+              <option value="presupuestado" ${p.estado==='presupuestado'?'selected':''}>📋 Presupuestado</option>
+              <option value="aprobado" ${p.estado==='aprobado'?'selected':''}>✅ Aprobado</option>
+              <option value="ejecutado" ${p.estado==='ejecutado'?'selected':''}>🏁 Ejecutado</option>
+              <option value="cancelado" ${p.estado==='cancelado'?'selected':''}>❌ Cancelado</option>
+            </select>
+          </div>
+          <div class="form-field"><label>Responsable interno</label>
+            <input type="text" id="int-responsable" value="${p.responsable||''}" placeholder="Quién gestiona este parte">
+          </div>
         </div>
         <div class="form-row3">
           <div class="form-field"><label>Días de producción</label><input type="number" id="int-dias-prod" value="${p.diasProduccion||''}" placeholder="0" min="0"></div>
@@ -371,11 +393,20 @@ function renderModalBody(p,secEditing){
           <div class="form-field"><label>Otros costes (€)</label><input type="number" id="int-otros" value="${p.otrosCostes||''}" placeholder="0.00" step="0.01" oninput="calcTotal()"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
-          <div style="background:#1a3a5c;border-radius:8px;padding:10px 14px;color:white"><div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">% Margen beneficio</div><div id="int-margen" style="font-size:22px;font-weight:700">—</div></div>
-          <div style="background:#2D6A2D;border-radius:8px;padding:10px 14px;color:white"><div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Beneficio (€)</div><div id="int-beneficio" style="font-size:22px;font-weight:700">—</div></div>
+          <div style="background:#1a3a5c;border-radius:8px;padding:10px 14px;color:white">
+            <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">% Margen beneficio</div>
+            <div id="int-margen" style="font-size:22px;font-weight:700">—</div>
+          </div>
+          <div style="background:#2D6A2D;border-radius:8px;padding:10px 14px;color:white">
+            <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Beneficio (€)</div>
+            <div id="int-beneficio" style="font-size:22px;font-weight:700">—</div>
+          </div>
         </div>
-        <div class="form-field full"><label>Notas internas</label><textarea id="int-notas" rows="3" placeholder="Notas del equipo interno…">${p.notasInternas||''}</textarea></div>
-      </div></div>`;
+        <div class="form-field full"><label>Notas internas</label>
+          <textarea id="int-notas" rows="3" placeholder="Notas del equipo interno…">${p.notasInternas||''}</textarea>
+        </div>
+      </div>
+    </div>`;
   setTimeout(calcTotal,50);
 }
 
@@ -391,7 +422,8 @@ window.toggleObsEdit=async function(parteId){
       parteActual.obs=val;
       body.innerHTML='<div class="dato"><strong>'+(val||'—')+'</strong></div>';
       if(btn)btn.textContent='✏ Editar';
-      showToast('✓ Observaciones guardadas');renderLista();
+      showToast('✓ Observaciones guardadas');
+      renderLista();
     }catch(e){showToast('Error: '+e.message,true);}
   }else{
     body.innerHTML='<textarea style="width:100%;min-height:100px;border:1.5px solid #1a3a5c;border-radius:8px;padding:8px;font-size:14px;resize:vertical">'+(parteActual.obs||'')+'</textarea>';
@@ -412,7 +444,8 @@ window.toggleSecEdit=async function(secId,parteId){
       const idx=todosPartes.findIndex(p=>p.id===parteId);
       if(idx>=0)todosPartes[idx]={...todosPartes[idx],...cambios};
       parteActual={...parteActual,...cambios};
-      showToast('✓ Sección guardada');renderModalBody(parteActual,false);renderLista();
+      showToast('✓ Sección guardada');
+      renderModalBody(parteActual,false);renderLista();
     }catch(e){showToast('Error: '+e.message,true);}
   }else{renderModalBody(parteActual,secId);}
 };
@@ -422,8 +455,11 @@ window.calcTotal=function(){
   const mat=parseFloat(document.getElementById('int-coste-mat')?.value)||0;
   const mo=parseFloat(document.getElementById('int-coste-mo')?.value)||0;
   const otros=parseFloat(document.getElementById('int-otros')?.value)||0;
-  const costeTotal=mat+mo+otros;const beneficio=venta-costeTotal;const margenPct=venta>0?(beneficio/venta*100):0;
-  const margenEl=document.getElementById('int-margen');const beneficioEl=document.getElementById('int-beneficio');
+  const costeTotal=mat+mo+otros;
+  const beneficio=venta-costeTotal;
+  const margenPct=venta>0?(beneficio/venta*100):0;
+  const margenEl=document.getElementById('int-margen');
+  const beneficioEl=document.getElementById('int-beneficio');
   if(margenEl)margenEl.textContent=margenPct.toFixed(1)+'%';
   if(beneficioEl)beneficioEl.textContent=beneficio.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'€';
   if(margenEl){const color=margenPct>=20?'#2D6A2D':margenPct>=10?'#e67e22':'#c0392b';margenEl.closest('div[style]').style.background=color;}
@@ -437,14 +473,17 @@ window.guardarCambios=async function(){
   const mat=parseFloat(document.getElementById('int-coste-mat')?.value)||0;
   const mo=parseFloat(document.getElementById('int-coste-mo')?.value)||0;
   const otros=parseFloat(document.getElementById('int-otros')?.value)||0;
-  const costeTotal=mat+mo+otros;const beneficio=venta-costeTotal;const margenPct=venta>0?(beneficio/venta*100):0;
+  const costeTotal=mat+mo+otros;
+  const beneficio=venta-costeTotal;
+  const margenPct=venta>0?(beneficio/venta*100):0;
   const cambios={estado:document.getElementById('int-estado').value,responsable:document.getElementById('int-responsable').value,diasProduccion:document.getElementById('int-dias-prod').value,diasInstalacion:document.getElementById('int-dias-inst').value,fechaPrevistaInst:document.getElementById('int-fecha-inst').value,precioVenta:venta,costeMaterial:mat,costeManoObra:mo,otrosCostes:otros,costeTotal,beneficio,margen:parseFloat(margenPct.toFixed(2)),presupuestoTotal:venta,notasInternas:document.getElementById('int-notas').value,actualizadoEn:new Date().toISOString()};
   try{
     await updateDoc(doc(db,"partes",docIdActual),cambios);
     const idx=todosPartes.findIndex(p=>p.id===docIdActual);
     if(idx>=0)todosPartes[idx]={...todosPartes[idx],...cambios};
     parteActual={...parteActual,...cambios};
-    actualizarStats();renderLista();cerrarModal();showToast('✓ Cambios guardados correctamente');
+    actualizarStats();renderLista();cerrarModal();
+    showToast('✓ Cambios guardados correctamente');
   }catch(e){showToast('Error al guardar: '+e.message,true);}
 };
 
@@ -457,8 +496,11 @@ window.confirmarBorrar=async function(){
 };
 
 function pdfBase(p){
-  const {jsPDF}=window.jspdf;const doc2=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210,M=15,CW=W-M*2;const VERDE=[45,106,45],AZUL=[26,58,92],GRIS=[245,245,245];let y=M;
+  const {jsPDF}=window.jspdf;
+  const doc2=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,M=15,CW=W-M*2;
+  const VERDE=[45,106,45],AZUL=[26,58,92],GRIS=[245,245,245];
+  let y=M;
   doc2.setFillColor(...AZUL);doc2.rect(0,0,W,22,'F');doc2.setTextColor(255,255,255);doc2.setFontSize(18);doc2.setFont('helvetica','bold');doc2.text('PARTE DE TRABAJO',M,13);doc2.setFontSize(11);doc2.setFont('helvetica','normal');doc2.text(p.expediente||'',W-M,13,{align:'right'});doc2.setFontSize(9);doc2.text('Cemerplay · '+new Date().toLocaleDateString('es-ES'),W-M,19,{align:'right'});doc2.setTextColor(0,0,0);y=28;
   function sec(t){doc2.setFillColor(...AZUL);doc2.rect(M,y,CW,7,'F');doc2.setTextColor(255,255,255);doc2.setFontSize(9);doc2.setFont('helvetica','bold');doc2.text(t.toUpperCase(),M+3,y+5);doc2.setTextColor(0,0,0);y+=9;}
   function f2(l1,v1,l2,v2){if(y>270){doc2.addPage();y=M;}const hw=CW/2;doc2.setFillColor(...GRIS);doc2.rect(M,y,hw/2,6,'F');if(l2)doc2.rect(M+hw,y,hw/2,6,'F');doc2.setFontSize(8);doc2.setFont('helvetica','bold');doc2.setTextColor(80,80,80);doc2.text(l1,M+2,y+4.2);if(l2)doc2.text(l2,M+hw+2,y+4.2);doc2.setFont('helvetica','normal');doc2.setTextColor(0,0,0);doc2.text(String(v1||'—'),M+hw/2+1,y+4.2);if(l2)doc2.text(String(v2||'—'),M+hw+hw/2+1,y+4.2);doc2.setDrawColor(220,220,220);doc2.rect(M,y,CW,6);y+=6;}
@@ -479,11 +521,17 @@ window.imprimirParte=function(){if(!parteActual)return;const d=pdfBase(parteActu
 window.abrirYExportarPDF=function(id){const p=todosPartes.find(x=>x.id===id);if(!p)return;pdfBase(p).save('Parte_'+p.expediente+'.pdf');showToast('PDF de '+p.expediente+' generado');};
 
 window.generarParteTrabajoCompleto=async function(){
-  if(!parteActual)return;const p=parteActual;
-  let seg={};try{const sn=await getDoc(doc(db,'partes',p.id));seg=sn.data()?.seguimiento||{};}catch(e){}
-  const dis=seg.diseno||{};const prod=seg.produccion||{};
-  const {jsPDF}=window.jspdf;const doc3=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210,M=15,CW=W-M*2;const AZUL=[26,58,92],VERDE=[45,106,45],MORADO=[106,26,92],GRIS=[245,245,245];let y=M;
+  if(!parteActual)return;
+  const p=parteActual;
+  let seg={};
+  try{const sn=await getDoc(doc(db,'partes',p.id));seg=sn.data()?.seguimiento||{};}catch(e){}
+  const dis=seg.diseno||{};
+  const prod=seg.produccion||{};
+  const {jsPDF}=window.jspdf;
+  const doc3=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,M=15,CW=W-M*2;
+  const AZUL=[26,58,92],VERDE=[45,106,45],MORADO=[106,26,92],GRIS=[245,245,245];
+  let y=M;
   doc3.setFillColor(...AZUL);doc3.rect(0,0,W,28,'F');doc3.setTextColor(255,255,255);doc3.setFontSize(20);doc3.setFont('helvetica','bold');doc3.text('PARTE DE TRABAJO',M,14);doc3.setFontSize(10);doc3.setFont('helvetica','normal');doc3.text('Cemerplay · Documento interno de producción',M,21);doc3.text(p.expediente||'',W-M,14,{align:'right'});doc3.text(new Date().toLocaleDateString('es-ES'),W-M,21,{align:'right'});doc3.setTextColor(0,0,0);y=36;
   function sec(t,c){c=c||AZUL;doc3.setFillColor(...c);doc3.rect(M,y,CW,7,'F');doc3.setTextColor(255,255,255);doc3.setFontSize(9);doc3.setFont('helvetica','bold');doc3.text(t.toUpperCase(),M+3,y+5);doc3.setTextColor(0,0,0);y+=9;}
   function f2(l1,v1,l2,v2){if(y>270){doc3.addPage();y=M;}const hw=CW/2;doc3.setFillColor(...GRIS);doc3.rect(M,y,hw/2,6,'F');if(l2)doc3.rect(M+hw,y,hw/2,6,'F');doc3.setFontSize(8);doc3.setFont('helvetica','bold');doc3.setTextColor(80,80,80);doc3.text(l1,M+2,y+4.2);if(l2)doc3.text(l2,M+hw+2,y+4.2);doc3.setFont('helvetica','normal');doc3.setTextColor(0,0,0);doc3.text(String(v1||'—'),M+hw/2+1,y+4.2);if(l2)doc3.text(String(v2||'—'),M+hw+hw/2+1,y+4.2);doc3.setDrawColor(220,220,220);doc3.rect(M,y,CW,6);y+=6;}
@@ -492,17 +540,36 @@ window.generarParteTrabajoCompleto=async function(){
   sec('1. Datos del comercial');
   f2('Expediente',p.expediente,'Comercial',p.comercial);f2('Firma contrato',p.fechaFirma,'Fecha ejecución',p.fechaEjec);f2('Nombre cliente',p.nombre,'Teléfono',p.telefono);f1('Dirección obra',(p.direccion||'')+(p.poblacion?' — '+p.poblacion:''));f2('Área del juego',p.dias?p.dias+' m²':'—','Terreno',p.terreno);f2('Acceso obra',p.acceso,'Atornillado',p.atornillado);f2('Solera',p.solera,'Ret. juego',p.retJuego);f2('Ret. caucho',p.retCaucho,'SBR',p.sbr);f2('EPDM',p.epdm,'Color',p.color);f2('Grosor',p.grosor,'Material',p.material);f1('Césped',p.cesped);y+=3;
   if(p.obs){sec('Observaciones del comercial');blq(p.obs);y+=3;}
-  sec('2. Diseño',MORADO);f2('Diseñador',dis.disenador||'—','Fecha límite',dis.fechaLimite||'—');f2('Aprobación cliente',dis.aprobacion||'—','Fecha aprobación',dis.fechaAprobacion||'—');if(dis.descripcion)f1('Descripción',dis.descripcion);if(dis.comentarios)f1('Comentarios cliente',dis.comentarios);y+=3;
-  if(dis.render){const renders=Array.isArray(dis.render)?dis.render:[dis.render];sec('Renders del proyecto',MORADO);for(let ri=0;ri<renders.length;ri++){try{const rH=75;if(y+rH>280){doc3.addPage();y=M;}doc3.addImage(renders[ri],'JPEG',M,y,CW,rH,'','MEDIUM');doc3.setDrawColor(...MORADO);doc3.rect(M,y,CW,rH);doc3.setFontSize(8);doc3.setTextColor(120,120,120);doc3.text('Render '+(ri+1),M+2,y+rH-2);y+=rH+4;}catch(e){}}}
-  sec('3. Producción',[100,80,20]);f2('Días producción',String(p.diasProduccion||prod.dias||'—'),'','');y+=2;
+  sec('2. Diseño',MORADO);
+  f2('Diseñador',dis.disenador||'—','Fecha límite',dis.fechaLimite||'—');f2('Aprobación cliente',dis.aprobacion||'—','Fecha aprobación',dis.fechaAprobacion||'—');
+  if(dis.descripcion)f1('Descripción',dis.descripcion);if(dis.comentarios)f1('Comentarios cliente',dis.comentarios);y+=3;
+  if(dis.render){
+    const renders=Array.isArray(dis.render)?dis.render:[dis.render];
+    sec('Renders del proyecto',MORADO);
+    for(let ri=0;ri<renders.length;ri++){
+      try{
+        const rH=75;
+        if(y+rH>280){doc3.addPage();y=M;}
+        doc3.addImage(renders[ri],'JPEG',M,y,CW,rH,'','MEDIUM');
+        doc3.setDrawColor(...MORADO);doc3.rect(M,y,CW,rH);
+        doc3.setFontSize(8);doc3.setTextColor(120,120,120);
+        doc3.text('Render '+(ri+1),M+2,y+rH-2);
+        y+=rH+4;
+      }catch(e){}
+    }
+  }
+  sec('3. Producción',[100,80,20]);
+  f2('Días producción',String(p.diasProduccion||prod.dias||'—'),'','');y+=2;
   doc3.setFillColor(96,125,139);doc3.rect(M,y,CW,6,'F');doc3.setTextColor(255,255,255);doc3.setFontSize(9);doc3.setFont('helvetica','bold');doc3.text('LÍNEA METAL',M+3,y+4.2);doc3.setTextColor(0,0,0);y+=8;
   f2('Operario',prod.metalOperario||'—','Estado',prod.metalEstado||'—');f2('Inicio',prod.metalInicio||'—','Fin previsto',prod.metalFin||'—');if(prod.metalNotas)f1('Notas',prod.metalNotas);y+=3;
   doc3.setFillColor(121,85,72);doc3.rect(M,y,CW,6,'F');doc3.setTextColor(255,255,255);doc3.setFontSize(9);doc3.setFont('helvetica','bold');doc3.text('LÍNEA MADERA',M+3,y+4.2);doc3.setTextColor(0,0,0);y+=8;
   f2('Operario',prod.maderaOperario||'—','Estado',prod.maderaEstado||'—');f2('Inicio',prod.maderaInicio||'—','Fin previsto',prod.maderaFin||'—');if(prod.maderaNotas)f1('Notas',prod.maderaNotas);y+=3;
-  sec('4. Instalación',VERDE);f2('Instalador',p.responsable||'—','Días instalación',String(p.diasInstalacion||'—'));f2('Fecha prevista',p.fechaPrevistaInst||'—','','');f1('Dirección',(p.direccion||'')+(p.poblacion?' — '+p.poblacion:''));if(p.lat&&p.lng)f1('Google Maps','maps.google.com/?q='+p.lat+','+p.lng);y+=3;
+  sec('4. Instalación',VERDE);
+  f2('Instalador',p.responsable||'—','Días instalación',String(p.diasInstalacion||'—'));f2('Fecha prevista',p.fechaPrevistaInst||'—','','');f1('Dirección',(p.direccion||'')+(p.poblacion?' — '+p.poblacion:''));if(p.lat&&p.lng)f1('Google Maps','maps.google.com/?q='+p.lat+','+p.lng);y+=3;
   if(p.fotos&&p.fotos.length>0){doc3.addPage();y=M;sec('Fotografías de obra ('+p.fotos.length+')');y+=3;const fW=(CW-8)/2,fH=65;for(let i=0;i<p.fotos.length;i++){const col=i%2;const fx=M+col*(fW+8);if(col===0&&i>0)y+=fH+8;if(y+fH>285){doc3.addPage();y=M;}try{doc3.addImage(p.fotos[i],'JPEG',fx,y,fW,fH,'','MEDIUM');doc3.setDrawColor(...AZUL);doc3.rect(fx,y,fW,fH);doc3.setFontSize(8);doc3.setTextColor(100,100,100);doc3.text('Foto '+(i+1),fx+2,y+fH-2);}catch(e){}}}
   const np=doc3.internal.getNumberOfPages();for(let i=1;i<=np;i++){doc3.setPage(i);doc3.setFontSize(8);doc3.setTextColor(180,180,180);doc3.text('Cemerplay — Parte de Trabajo '+p.expediente+' — Pág. '+i+'/'+np,M,290);}
-  doc3.save('ParteTrabajo_'+p.expediente+'.pdf');showToast('✓ Parte de trabajo generado');
+  doc3.save('ParteTrabajo_'+p.expediente+'.pdf');
+  showToast('✓ Parte de trabajo generado');
 };
 
 window.exportarExcelParte=function(id){
@@ -520,10 +587,13 @@ function showToast(msg,error=false){const t=document.getElementById('toast');t.t
 
 const HOLDED_API_KEY='607fb6450063dd2e03c879f70912bb46';
 let presupuestosHolded=[],presupuestoSeleccionado=null;
+
 window.abrirHolded=function(){document.getElementById('holded-modal').classList.add('active');document.body.style.overflow='hidden';cargarPresupuestosHolded();};
 window.cerrarHolded=function(){document.getElementById('holded-modal').classList.remove('active');document.body.style.overflow='';presupuestoSeleccionado=null;document.getElementById('btn-importar').disabled=true;};
+
 window.cargarPresupuestosHolded=async function(){
-  const lista=document.getElementById('holded-lista');const err=document.getElementById('holded-err');
+  const lista=document.getElementById('holded-lista');
+  const err=document.getElementById('holded-err');
   err.style.display='none';lista.innerHTML='<div class="holded-loading">Cargando presupuestos…</div>';
   presupuestosHolded=[];presupuestoSeleccionado=null;document.getElementById('btn-importar').disabled=true;
   try{
@@ -531,9 +601,11 @@ window.cargarPresupuestosHolded=async function(){
     if(!resp.ok){const e=await resp.text();throw new Error('Error '+resp.status+': '+e);}
     const data=await resp.json();
     presupuestosHolded=(Array.isArray(data)?data:(data.list||data.data||[]));
-    presupuestosHolded.sort((a,b)=>(b.date||0)-(a.date||0));renderPresupuestos(presupuestosHolded);
+    presupuestosHolded.sort((a,b)=>(b.date||0)-(a.date||0));
+    renderPresupuestos(presupuestosHolded);
   }catch(e){err.textContent='No se pudo conectar con Holded.';err.style.display='block';lista.innerHTML='';console.error(e);}
 };
+
 function renderPresupuestos(lista){
   const el=document.getElementById('holded-lista');
   if(!lista.length){el.innerHTML='<div class="holded-loading">No se encontraron presupuestos.</div>';return;}
@@ -543,21 +615,35 @@ function renderPresupuestos(lista){
     const importe=p.total!=null?parseFloat(p.total).toLocaleString('es-ES',{minimumFractionDigits:2})+'€':'—';
     const cliente=p.contactName||p.contact?.name||'Sin nombre';
     const num=p.docNumber||p.number||p.id?.slice(-6)||'—';
-    return `<div class="presup-item" id="pi-${p.id}" onclick="seleccionarPresupuesto('${p.id}')"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div><div class="presup-num">Nº ${num}</div><div class="presup-cliente">${cliente}</div><div class="presup-meta"><span>📅 ${fecha}</span><span>${estado}</span></div></div><div class="presup-importe">${importe}</div></div></div>`;
+    return `<div class="presup-item" id="pi-${p.id}" onclick="seleccionarPresupuesto('${p.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div><div class="presup-num">Nº ${num}</div><div class="presup-cliente">${cliente}</div><div class="presup-meta"><span>📅 ${fecha}</span><span>${estado}</span></div></div>
+        <div class="presup-importe">${importe}</div>
+      </div>
+    </div>`;
   }).join('');
 }
+
 window.filtrarPresupuestos=function(){const q=document.getElementById('holded-buscar').value.toLowerCase();if(!q){renderPresupuestos(presupuestosHolded);return;}renderPresupuestos(presupuestosHolded.filter(p=>(p.contactName||p.contact?.name||'').toLowerCase().includes(q)||String(p.docNumber||p.number||'').toLowerCase().includes(q)));};
 window.seleccionarPresupuesto=function(id){document.querySelectorAll('.presup-item').forEach(el=>el.classList.remove('selected'));const el=document.getElementById('pi-'+id);if(el)el.classList.add('selected');presupuestoSeleccionado=presupuestosHolded.find(p=>p.id===id);document.getElementById('btn-importar').disabled=!presupuestoSeleccionado;};
+
 window.importarSeleccionado=async function(){
-  if(!presupuestoSeleccionado)return;const p=presupuestoSeleccionado;
-  const cliente=p.contactName||p.contact?.name||'';const total=p.total||0;const num=p.docNumber||p.number||p.id;
+  if(!presupuestoSeleccionado)return;
+  const p=presupuestoSeleccionado;
+  const cliente=p.contactName||p.contact?.name||'';
+  const total=p.total||0;
+  const num=p.docNumber||p.number||p.id;
   const lineas=(p.items||p.products||p.lines||[]).map(l=>`${l.name||l.desc||''}: ${l.units||l.qty||1} ud × ${l.price||l.subtotal||0}€`).join('\n');
-  const snap2=await getDocs(collection(db,'partes'));let maxNum2=0;
+  const snap2=await getDocs(collection(db,'partes'));
+  let maxNum2=0;
   snap2.docs.forEach(d=>{const exp=d.data().expediente||'';const m=exp.match(/ES-(\d+)/);if(m)maxNum2=Math.max(maxNum2,parseInt(m[1]));});
-  const nuevoNum2=maxNum2+1;const nuevoExp2='ES-'+String(nuevoNum2).padStart(4,'0');
+  const nuevoNum2=maxNum2+1;
+  const nuevoExp2='ES-'+String(nuevoNum2).padStart(4,'0');
   try{
     await addDoc(collection(db,'partes'),{expediente:nuevoExp2,nombre:cliente,telefono:p.contact?.phone||'',correo:p.contact?.email||'',direccion:p.contact?.address||'',poblacion:p.contact?.city||'',obs:`Importado de Holded — Presupuesto Nº${num}\n\n${lineas}`,precioVenta:total,presupuestoTotal:total,estado:'presupuestado',creadoEn:serverTimestamp(),origenHolded:true,holdedId:p.id,holdedNum:String(num),numFotos:0});
-    localStorage.setItem('cemerplay_counter',String(nuevoNum2));cerrarHolded();await cargarPartes();showToast('✅ Presupuesto '+num+' importado como '+nuevoExp2);
+    localStorage.setItem('cemerplay_counter',String(nuevoNum2));
+    cerrarHolded();await cargarPartes();
+    showToast('✅ Presupuesto '+num+' importado como '+nuevoExp2);
   }catch(e){showToast('Error al importar: '+e.message,true);}
 };
 
